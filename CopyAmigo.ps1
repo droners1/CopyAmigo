@@ -663,13 +663,12 @@ function Show-ProjectSearchModal {
     $resultsListView.GridLines = $true
     $resultsListView.Location = New-Object System.Drawing.Point(20, 125)
     $resultsListView.Size = New-Object System.Drawing.Size(650, 250)
+    $resultsListView.FullRowSelect = $true
+    $resultsListView.GridLines = $false
     $resultsListView.Add_ColumnClick({ Sort-ListView $_.Column })
     
     # Add columns
-    $resultsListView.Columns.Add("Project Name", 400)
-    $resultsListView.Columns.Add("", 0)  # Hidden path column
-    $resultsListView.Columns.Add("Last Modified", 150)
-    $resultsListView.Columns.Add("", 0)  # Hidden size column
+    $resultsListView.Columns.Add("Project Name", 600)
     
     $searchForm.Controls.Add($resultsListView)
     
@@ -736,9 +735,6 @@ function Show-ProjectSearchModal {
             
             foreach ($project in $projects) {
                 $item = New-Object System.Windows.Forms.ListViewItem($project.Name)
-                $item.SubItems.Add("")  # Empty path column
-                $item.SubItems.Add($project.LastModified.ToString("MM/dd/yyyy HH:mm"))
-                $item.SubItems.Add("")  # Empty size column
                 $item.Tag = $project
                 $resultsListView.Items.Add($item) | Out-Null
             }
@@ -778,15 +774,20 @@ function Show-ProjectSearchModal {
     $searchTimer.Add_Tick({
         $searchTimer.Stop()
         $searchText = $searchTextBox.Text.ToLower()
+        Write-Host "Search timer triggered with text: '$searchText'"
         
         if ($searchText.Length -eq 0) {
+            Write-Host "Empty search, refreshing list..."
             # Show all items by refreshing the list
             Refresh-ProjectList
             return
         }
         
+        Write-Host "Filtering $($resultsListView.Items.Count) items..."
         # Filter items by removing non-matching ones
         $itemsToRemove = @()
+        $matchCount = 0
+        
         foreach ($item in $resultsListView.Items) {
             $projectName = $item.Text.ToLower()
             
@@ -797,10 +798,15 @@ function Show-ProjectSearchModal {
             $isMatch = $projectName.Contains($searchText) -or 
                       $normalizedName.Contains($normalizedSearch)
             
-            if (-not $isMatch) {
+            if ($isMatch) {
+                $matchCount++
+                Write-Host "Match found: $($item.Text)"
+            } else {
                 $itemsToRemove += $item
             }
         }
+        
+        Write-Host "Found $matchCount matches, removing $($itemsToRemove.Count) non-matches"
         
         # Remove non-matching items
         foreach ($item in $itemsToRemove) {
@@ -810,6 +816,7 @@ function Show-ProjectSearchModal {
         $visibleCount = $resultsListView.Items.Count
         $statusLabel.Text = "$visibleCount projects match search"
         $statusLabel.ForeColor = [System.Drawing.Color]::Blue
+        Write-Host "Search complete: $visibleCount items remaining"
     })
     
     $searchTextBox.Add_TextChanged({
@@ -4221,7 +4228,6 @@ function Create-GUI {
     $script:searchProjectsButton.Size = New-Object System.Drawing.Size(120, 35)
     $script:searchProjectsButton.Add_Click({ 
         Write-Host "Search Projects button clicked!"
-        [System.Windows.Forms.MessageBox]::Show("Button clicked! Testing function call...", "Test", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         try {
             Write-Host "Calling Show-ProjectSearchModal..."
             Show-ProjectSearchModal
