@@ -12,6 +12,8 @@ $projectFolderName = Split-Path $currentDir -Leaf
 $sourceDir = $currentDir
 
 # Global variables
+$script:projectFolderName = $projectFolderName
+$script:sourceDir = $sourceDir
 $script:destinationDir = ""
 $script:selectedSubfolders = @()
 $script:cancelRequested = $false
@@ -511,17 +513,8 @@ function Start-WindowsStyleCopy {
     }
 }
 
-# Auto-detect destination
+# Projects root for source projects (not destination)
 $script:projectsRoot = "H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS"
-$auto_destination = ""
-if (Test-Path $script:projectsRoot) {
-    $matchingProjects = Get-ChildItem $script:projectsRoot -Directory | Where-Object { 
-        $_.Name -match ([regex]::Escape($projectFolderName.Split(' ')[0]))
-    }
-    if ($matchingProjects) {
-        $auto_destination = $matchingProjects[0].FullName
-    }
-}
 
 # GUI control variables
 $script:form = $null
@@ -684,6 +677,16 @@ function Show-ProjectSearchModal {
             $script:sourceDir = $selectedProject.FullPath
             $script:projectFolderName = $selectedProject.Name
             Update-SourceDisplay
+            
+            # Automatically set destination to C:\Projects\[ProjectName]
+            Auto-DetectDestination
+            
+            # Update the main form's destination display
+            if ($script:destinationTextBox) {
+                $script:destinationTextBox.Text = $script:destinationDir
+                $script:destinationTextBox.ForeColor = [System.Drawing.Color]::Blue
+            }
+            
             $searchForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
             $searchForm.Close()
         }
@@ -923,16 +926,16 @@ function Get-OptimalRobocopyParams {
         $threads = if ($fileCount -gt 50000) { 128 } elseif ($fileCount -gt 10000) { 64 } else { 32 }
         return @{
             Threads = $threads
-            Params = "/E /MT:$threads /R:0 /W:0 /J /COPY:DAT /NP /NDL /NC"
-            Description = "SSD-to-SSD Optimized: Unbuffered I/O, Max threads, No retries"
+            Params = "/E /MT:$threads /R:0 /W:0 /J /COPY:DAT /NP /NDL /NC /XO"
+            Description = "SSD-to-SSD Optimized: Unbuffered I/O, Max threads, No retries, Overwrite newer files"
         }
     }
     elseif ($sourceType -eq "Network" -or $destType -eq "Network") {
         # Network involved - Conservative approach
         return @{
             Threads = 8
-            Params = "/E /MT:8 /R:2 /W:2 /Z /NP /NDL /NC"
-            Description = "Network Optimized: Restartable mode, Low threads, Retry logic"
+            Params = "/E /MT:8 /R:2 /W:2 /Z /NP /NDL /NC /XO"
+            Description = "Network Optimized: Restartable mode, Low threads, Retry logic, Overwrite newer files"
         }
     }
     elseif ($sourceType -eq "HDD" -and $destType -eq "HDD") {
@@ -940,16 +943,16 @@ function Get-OptimalRobocopyParams {
         $threads = if ($fileCount -gt 10000) { 16 } else { 8 }
         return @{
             Threads = $threads
-            Params = "/E /MT:$threads /R:1 /W:1 /COPY:DAT /NP /NDL /NC"
-            Description = "HDD-to-HDD Optimized: Balanced threads, Minimal retries"
+            Params = "/E /MT:$threads /R:1 /W:1 /COPY:DAT /NP /NDL /NC /XO"
+            Description = "HDD-to-HDD Optimized: Balanced threads, Minimal retries, Overwrite newer files"
         }
     }
     else {
         # Mixed (SSD-HDD) - Moderate approach
         return @{
             Threads = 32
-            Params = "/E /MT:32 /R:1 /W:1 /J /COPY:DAT /NP /NDL /NC"
-            Description = "Mixed Drive Optimized: Medium threads, Unbuffered I/O"
+            Params = "/E /MT:32 /R:1 /W:1 /J /COPY:DAT /NP /NDL /NC /XO"
+            Description = "Mixed Drive Optimized: Medium threads, Unbuffered I/O, Overwrite newer files"
         }
     }
 }
@@ -2345,14 +2348,14 @@ function Copy-FolderWithRobocopy {
         $processInfo = New-Object System.Diagnostics.ProcessStartInfo
         $processInfo.FileName = "robocopy"
         # Use multithreading for better performance
-        $processInfo.Arguments = "`"$source`" `"$destination`" /E /MT:32 /R:1 /W:1 /NP /NDL /NC"
+        $processInfo.Arguments = "`"$source`" `"$destination`" /E /MT:32 /R:1 /W:1 /NP /NDL /NC /XO"
         $processInfo.UseShellExecute = $false
         $processInfo.CreateNoWindow = $true
         $processInfo.RedirectStandardOutput = $true
         $processInfo.RedirectStandardError = $true
         
         Write-Status "DEBUG: Robocopy command: robocopy $($processInfo.Arguments)"
-        Write-Status "DEBUG: Parameters explained: /E=copy subdirs, /MT:32=32 threads, /R:1=retry once, /W:1=wait 1sec, /NP=no progress, /NDL=no directory list, /NC=no class"
+        Write-Status "DEBUG: Parameters explained: /E=copy subdirs, /MT:32=32 threads, /R:1=retry once, /W:1=wait 1sec, /NP=no progress, /NDL=no directory list, /NC=no class, /XO=exclude older (overwrite with newer files)"
         
         $process = New-Object System.Diagnostics.Process
         $process.StartInfo = $processInfo
@@ -4151,40 +4154,35 @@ function Cleanup-ActiveProcesses {
 }
 
 function Browse-DestinationFolder {
-    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-    $folderBrowser.Description = "Select destination folder for copied project data"
-    $folderBrowser.ShowNewFolderButton = $true
-    
+    # Hard-coded destination to C:\Projects
     if (Test-Path "C:\Projects") {
-        $folderBrowser.SelectedPath = "C:\Projects"
-    }
-    
-    if ($folderBrowser.ShowDialog() -eq "OK") {
-        $script:destinationDir = Join-Path $folderBrowser.SelectedPath $projectFolderName
+        $script:destinationDir = Join-Path "C:\Projects" $script:projectFolderName
         $script:destinationTextBox.Text = $script:destinationDir
         $script:destinationTextBox.ForeColor = [System.Drawing.Color]::Black
+        Write-Status "Destination updated to: $script:destinationDir"
         Update-CopyButtonState
+    } else {
+        Write-Status "ERROR: C:\Projects directory not found. Please create it first."
+        [System.Windows.Forms.MessageBox]::Show("C:\Projects directory not found. Please create the C:\Projects folder first.", "Destination Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
     }
 }
 
 function Auto-DetectDestination {
-    if ($auto_destination -and (Test-Path $auto_destination)) {
-        $script:destinationDir = $auto_destination
-        $script:destinationTextBox.Text = $auto_destination
-        $script:destinationTextBox.ForeColor = [System.Drawing.Color]::ForestGreen
-        Write-Status "Auto-detected destination: $auto_destination"
+    # Update destination to C:\Projects\[ProjectName] when a project is selected
+    if (Test-Path "C:\Projects") {
+        $script:destinationDir = Join-Path "C:\Projects" $script:projectFolderName
+        
+        if ($script:destinationTextBox) {
+            $script:destinationTextBox.Text = $script:destinationDir
+            $script:destinationTextBox.ForeColor = [System.Drawing.Color]::Blue
+            $script:destinationTextBox.Refresh()
+        }
+        
+        Write-Status "Destination updated to: $script:destinationDir"
         Update-CopyButtonState
     } else {
-        if (Test-Path "C:\Projects") {
-            $defaultDestination = Join-Path "C:\Projects" $projectFolderName
-            $script:destinationDir = $defaultDestination
-            $script:destinationTextBox.Text = $defaultDestination
-            $script:destinationTextBox.ForeColor = [System.Drawing.Color]::Blue
-            Write-Status "Defaulted to: $defaultDestination"
-            Update-CopyButtonState
-        } else {
-            Write-Status "C:\Projects directory not found. Please browse for destination."
-        }
+        Write-Status "ERROR: C:\Projects directory not found. Please create it first."
+        [System.Windows.Forms.MessageBox]::Show("C:\Projects directory not found. Please create the C:\Projects folder first.", "Destination Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
     }
 }
 
@@ -4240,9 +4238,9 @@ function Create-GUI {
     $script:form.Controls.Add($script:searchProjectsButton)
     $toolTip.SetToolTip($script:searchProjectsButton, "Search for and select a project from the Projects root directory.")
     
-    # Browse button
+    # Set Destination button
     $script:browseButton = New-Object System.Windows.Forms.Button
-    $script:browseButton.Text = "Choose Destination"
+    $script:browseButton.Text = "Set Destination"
     $script:browseButton.Location = New-Object System.Drawing.Point(20, 120)
     $script:browseButton.Size = New-Object System.Drawing.Size(200, 40)
     $script:browseButton.Add_Click({ Browse-DestinationFolder })
@@ -4254,9 +4252,9 @@ function Create-GUI {
     $script:destinationTextBox.Location = New-Object System.Drawing.Point(240, 125)
     $script:destinationTextBox.Size = New-Object System.Drawing.Size(400, 28)
     $script:destinationTextBox.ReadOnly = $true
-    $script:destinationTextBox.Text = "Click to select destination..."
+    $script:destinationTextBox.Text = "C:\Projects"
     $script:form.Controls.Add($script:destinationTextBox)
-    $toolTip.SetToolTip($script:destinationTextBox, "Shows the selected destination path for your project copy.")
+    $toolTip.SetToolTip($script:destinationTextBox, "Shows the automatic destination path (C:\Projects\[ProjectName]) for your project copy.")
     
     # Data source selection
     $sourceGroupBox = New-Object System.Windows.Forms.GroupBox
@@ -4437,7 +4435,9 @@ try {
     
     $script:form.Add_Shown({
         $script:form.Activate()
-        Auto-DetectDestination
+        # Don't auto-set destination on initial load - just show C:\Projects
+        $script:destinationDir = "C:\Projects"
+        Update-CopyButtonState
     })
     
     [System.Windows.Forms.Application]::Run($script:form)
