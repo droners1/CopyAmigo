@@ -544,35 +544,48 @@ function Get-AvailableProjects {
     param([string]$projectsRootPath = $script:projectsRoot)
     
     try {
+        Write-Host "Testing path: $projectsRootPath"
         if (-not (Test-Path $projectsRootPath)) {
+            Write-Host "Path does not exist: $projectsRootPath"
             return @()
         }
         
+        Write-Host "Getting directory listing..."
         $projects = Get-ChildItem $projectsRootPath -Directory -ErrorAction SilentlyContinue | Where-Object {
-            # Exclude hidden/system folders
+            # Exclude hidden/system folders and administrative folders (starting with ~)
             -not $_.Attributes.HasFlag([System.IO.FileAttributes]::Hidden) -and
-            -not $_.Attributes.HasFlag([System.IO.FileAttributes]::System)
+            -not $_.Attributes.HasFlag([System.IO.FileAttributes]::System) -and
+            -not $_.Name.StartsWith("~")
         } | ForEach-Object {
+            Write-Host "Processing project: $($_.Name)"
             [PSCustomObject]@{
                 Name = $_.Name
                 FullPath = $_.FullName
                 LastModified = $_.LastWriteTime
-                Size = (Get-ChildItem $_.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+                Size = 0  # Skip size calculation for now - too slow
             }
         }
         
-        return $projects | Sort-Object Name
+        Write-Host "Found $($projects.Count) projects, sorting..."
+        $sortedProjects = $projects | Sort-Object Name
+        Write-Host "Sorting completed"
+        return $sortedProjects
     } catch {
-        Write-Status "ERROR: Failed to enumerate projects: $($_.Exception.Message)"
+        Write-Host "ERROR: Failed to enumerate projects: $($_.Exception.Message)"
         return @()
     }
 }
 
+# Global function for project search modal
 function Show-ProjectSearchModal {
     param([string]$currentSourcePath = $script:sourceDir)
     
+    Write-Host "Show-ProjectSearchModal function called"
+    
     # Create the modal form
+    Write-Host "Creating modal form..."
     $searchForm = New-Object System.Windows.Forms.Form
+    Write-Host "Form object created"
     $searchForm.Text = "Search Projects"
     $searchForm.Size = New-Object System.Drawing.Size(700, 500)
     $searchForm.StartPosition = "CenterParent"
@@ -580,6 +593,7 @@ function Show-ProjectSearchModal {
     $searchForm.MaximizeBox = $false
     $searchForm.MinimizeBox = $false
     $searchForm.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    Write-Host "Form properties set"
     
     # Projects root configuration
     $rootLabel = New-Object System.Windows.Forms.Label
@@ -652,10 +666,10 @@ function Show-ProjectSearchModal {
     $resultsListView.Add_ColumnClick({ Sort-ListView $_.Column })
     
     # Add columns
-    $resultsListView.Columns.Add("Project Name", 200)
-    $resultsListView.Columns.Add("Full Path", 300)
-    $resultsListView.Columns.Add("Last Modified", 120)
-    $resultsListView.Columns.Add("Size", 80)
+    $resultsListView.Columns.Add("Project Name", 400)
+    $resultsListView.Columns.Add("", 0)  # Hidden path column
+    $resultsListView.Columns.Add("Last Modified", 150)
+    $resultsListView.Columns.Add("", 0)  # Hidden size column
     
     $searchForm.Controls.Add($resultsListView)
     
@@ -705,7 +719,10 @@ function Show-ProjectSearchModal {
         $searchForm.Refresh()
         
         try {
+            Write-Host "Getting available projects from: $($rootTextBox.Text)"
             $projects = Get-AvailableProjects -projectsRootPath $rootTextBox.Text
+            Write-Host "Found $($projects.Count) projects"
+            
             $resultsListView.Items.Clear()
             
             if ($projects.Count -eq 0) {
@@ -714,19 +731,22 @@ function Show-ProjectSearchModal {
                 return
             }
             
+            # Show all projects for complete searchability
+            Write-Host "Displaying all $($projects.Count) projects"
+            
             foreach ($project in $projects) {
                 $item = New-Object System.Windows.Forms.ListViewItem($project.Name)
-                $item.SubItems.Add($project.FullPath)
+                $item.SubItems.Add("")  # Empty path column
                 $item.SubItems.Add($project.LastModified.ToString("MM/dd/yyyy HH:mm"))
-                $sizeText = if ($project.Size -gt 0) { "$([math]::Round($project.Size / 1MB, 1)) MB" } else { "N/A" }
-                $item.SubItems.Add($sizeText)
+                $item.SubItems.Add("")  # Empty size column
                 $item.Tag = $project
                 $resultsListView.Items.Add($item) | Out-Null
             }
             
-            $statusLabel.Text = "$($projects.Count) projects found"
+            $statusLabel.Text = "$($projects.Count) projects loaded"
             $statusLabel.ForeColor = [System.Drawing.Color]::Green
         } catch {
+            Write-Host "Error in Refresh-ProjectList: $($_.Exception.Message)"
             $statusLabel.Text = "Error loading projects: $($_.Exception.Message)"
             $statusLabel.ForeColor = [System.Drawing.Color]::Red
         }
@@ -760,28 +780,34 @@ function Show-ProjectSearchModal {
         $searchText = $searchTextBox.Text.ToLower()
         
         if ($searchText.Length -eq 0) {
-            foreach ($item in $resultsListView.Items) {
-                $item.Visible = $true
-            }
+            # Show all items by refreshing the list
+            Refresh-ProjectList
             return
         }
         
+        # Filter items by removing non-matching ones
+        $itemsToRemove = @()
         foreach ($item in $resultsListView.Items) {
             $projectName = $item.Text.ToLower()
-            $projectPath = $item.SubItems[1].Text.ToLower()
             
             # Case-insensitive substring match, treat hyphens/underscores/spaces equivalently
             $normalizedName = $projectName -replace '[-_\s]', ''
             $normalizedSearch = $searchText -replace '[-_\s]', ''
             
             $isMatch = $projectName.Contains($searchText) -or 
-                      $projectPath.Contains($searchText) -or
                       $normalizedName.Contains($normalizedSearch)
             
-            $item.Visible = $isMatch
+            if (-not $isMatch) {
+                $itemsToRemove += $item
+            }
         }
         
-        $visibleCount = ($resultsListView.Items | Where-Object { $_.Visible }).Count
+        # Remove non-matching items
+        foreach ($item in $itemsToRemove) {
+            $resultsListView.Items.Remove($item)
+        }
+        
+        $visibleCount = $resultsListView.Items.Count
         $statusLabel.Text = "$visibleCount projects match search"
         $statusLabel.ForeColor = [System.Drawing.Color]::Blue
     })
@@ -804,10 +830,14 @@ function Show-ProjectSearchModal {
     })
     
     # Initial load
+    Write-Host "Calling Refresh-ProjectList..."
     Refresh-ProjectList
+    Write-Host "Refresh-ProjectList completed"
     
     # Show the modal
+    Write-Host "About to show modal with ShowDialog()..."
     $result = $searchForm.ShowDialog()
+    Write-Host "ShowDialog completed with result: $result"
     return $result
 }
 
@@ -4189,7 +4219,18 @@ function Create-GUI {
     $script:searchProjectsButton.Text = "Search Projects..."
     $script:searchProjectsButton.Location = New-Object System.Drawing.Point(440, 60)
     $script:searchProjectsButton.Size = New-Object System.Drawing.Size(120, 35)
-    $script:searchProjectsButton.Add_Click({ Show-ProjectSearchModal })
+    $script:searchProjectsButton.Add_Click({ 
+        Write-Host "Search Projects button clicked!"
+        [System.Windows.Forms.MessageBox]::Show("Button clicked! Testing function call...", "Test", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        try {
+            Write-Host "Calling Show-ProjectSearchModal..."
+            Show-ProjectSearchModal
+            Write-Host "Show-ProjectSearchModal completed"
+        } catch {
+            Write-Host "Error opening project search: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Error opening project search: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+    })
     $script:form.Controls.Add($script:searchProjectsButton)
     $toolTip.SetToolTip($script:searchProjectsButton, "Search for and select a project from the Projects root directory.")
     
