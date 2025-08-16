@@ -16,6 +16,7 @@ $script:destinationDir = ""
 $script:selectedSubfolders = @()
 $script:cancelRequested = $false
 $script:activeProcesses = @()
+$script:projectsRoot = "C:\Projects"  # Default projects root path
 
 # OPTIMIZATION VARIABLES
 $script:sourceDriveType = ""
@@ -511,10 +512,10 @@ function Start-WindowsStyleCopy {
 }
 
 # Auto-detect destination
-$projectsRoot = "C:\Projects"
+$script:projectsRoot = "C:\Projects"
 $auto_destination = ""
-if (Test-Path $projectsRoot) {
-    $matchingProjects = Get-ChildItem $projectsRoot -Directory | Where-Object { 
+if (Test-Path $script:projectsRoot) {
+    $matchingProjects = Get-ChildItem $script:projectsRoot -Directory | Where-Object { 
         $_.Name -match ([regex]::Escape($projectFolderName.Split(' ')[0]))
     }
     if ($matchingProjects) {
@@ -538,6 +539,295 @@ $script:subfolderDropdown = $null
 $script:selectionCountLabel = $null
 
 # OPTIMIZATION FUNCTIONS
+
+function Get-AvailableProjects {
+    param([string]$projectsRootPath = $script:projectsRoot)
+    
+    try {
+        if (-not (Test-Path $projectsRootPath)) {
+            return @()
+        }
+        
+        $projects = Get-ChildItem $projectsRootPath -Directory -ErrorAction SilentlyContinue | Where-Object {
+            # Exclude hidden/system folders
+            -not $_.Attributes.HasFlag([System.IO.FileAttributes]::Hidden) -and
+            -not $_.Attributes.HasFlag([System.IO.FileAttributes]::System)
+        } | ForEach-Object {
+            [PSCustomObject]@{
+                Name = $_.Name
+                FullPath = $_.FullName
+                LastModified = $_.LastWriteTime
+                Size = (Get-ChildItem $_.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+            }
+        }
+        
+        return $projects | Sort-Object Name
+    } catch {
+        Write-Status "ERROR: Failed to enumerate projects: $($_.Exception.Message)"
+        return @()
+    }
+}
+
+function Show-ProjectSearchModal {
+    param([string]$currentSourcePath = $script:sourceDir)
+    
+    # Create the modal form
+    $searchForm = New-Object System.Windows.Forms.Form
+    $searchForm.Text = "Search Projects"
+    $searchForm.Size = New-Object System.Drawing.Size(700, 500)
+    $searchForm.StartPosition = "CenterParent"
+    $searchForm.FormBorderStyle = "FixedDialog"
+    $searchForm.MaximizeBox = $false
+    $searchForm.MinimizeBox = $false
+    $searchForm.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    
+    # Projects root configuration
+    $rootLabel = New-Object System.Windows.Forms.Label
+    $rootLabel.Text = "Projects Root:"
+    $rootLabel.Location = New-Object System.Drawing.Point(20, 20)
+    $rootLabel.Size = New-Object System.Drawing.Size(100, 20)
+    $searchForm.Controls.Add($rootLabel)
+    
+    $rootTextBox = New-Object System.Windows.Forms.TextBox
+    $rootTextBox.Text = $script:projectsRoot
+    $rootTextBox.Location = New-Object System.Drawing.Point(130, 18)
+    $rootTextBox.Size = New-Object System.Drawing.Size(400, 25)
+    $searchForm.Controls.Add($rootTextBox)
+    
+    $browseRootButton = New-Object System.Windows.Forms.Button
+    $browseRootButton.Text = "Browse"
+    $browseRootButton.Location = New-Object System.Drawing.Point(540, 18)
+    $browseRootButton.Size = New-Object System.Drawing.Size(80, 25)
+    $browseRootButton.Add_Click({
+        $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+        $folderBrowser.Description = "Select Projects Root Directory"
+        $folderBrowser.SelectedPath = $rootTextBox.Text
+        if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $rootTextBox.Text = $folderBrowser.SelectedPath
+            $script:projectsRoot = $folderBrowser.SelectedPath
+            Refresh-ProjectList
+        }
+    })
+    $searchForm.Controls.Add($browseRootButton)
+    
+    # Search box
+    $searchLabel = New-Object System.Windows.Forms.Label
+    $searchLabel.Text = "Search Projects:"
+    $searchLabel.Location = New-Object System.Drawing.Point(20, 60)
+    $searchLabel.Size = New-Object System.Drawing.Size(100, 20)
+    $searchForm.Controls.Add($searchLabel)
+    
+    $searchTextBox = New-Object System.Windows.Forms.TextBox
+    $searchTextBox.Location = New-Object System.Drawing.Point(130, 58)
+    $searchTextBox.Size = New-Object System.Drawing.Size(400, 25)
+    $searchTextBox.PlaceholderText = "Type to search project names..."
+    $searchForm.Controls.Add($searchTextBox)
+    
+    # Results list
+    $resultsLabel = New-Object System.Windows.Forms.Label
+    $resultsLabel.Text = "Available Projects:"
+    $resultsLabel.Location = New-Object System.Drawing.Point(20, 100)
+    $resultsLabel.Size = New-Object System.Drawing.Size(150, 20)
+    $searchForm.Controls.Add($resultsLabel)
+    
+    $resultsListView = New-Object System.Windows.Forms.ListView
+    $resultsListView.View = [System.Windows.Forms.View]::Details
+    $resultsListView.FullRowSelect = $true
+    $resultsListView.GridLines = $true
+    $resultsListView.Location = New-Object System.Drawing.Point(20, 125)
+    $resultsListView.Size = New-Object System.Drawing.Size(650, 250)
+    $resultsListView.Add_ColumnClick({ Sort-ListView $_.Column })
+    
+    # Add columns
+    $resultsListView.Columns.Add("Project Name", 200)
+    $resultsListView.Columns.Add("Full Path", 300)
+    $resultsListView.Columns.Add("Last Modified", 120)
+    $resultsListView.Columns.Add("Size", 80)
+    
+    $searchForm.Controls.Add($resultsListView)
+    
+    # Buttons
+    $selectButton = New-Object System.Windows.Forms.Button
+    $selectButton.Text = "Select Project"
+    $selectButton.Location = New-Object System.Drawing.Point(400, 390)
+    $selectButton.Size = New-Object System.Drawing.Size(120, 35)
+    $selectButton.Enabled = $false
+    $selectButton.Add_Click({
+        if ($resultsListView.SelectedItems.Count -gt 0) {
+            $selectedProject = $resultsListView.SelectedItems[0].Tag
+            $script:sourceDir = $selectedProject.FullPath
+            $script:projectFolderName = $selectedProject.Name
+            Update-SourceDisplay
+            $searchForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $searchForm.Close()
+        }
+    })
+    $searchForm.Controls.Add($selectButton)
+    
+    $cancelButton = New-Object System.Windows.Forms.Button
+    $cancelButton.Text = "Cancel"
+    $cancelButton.Location = New-Object System.Drawing.Point(540, 390)
+    $cancelButton.Size = New-Object System.Drawing.Size(100, 35)
+    $cancelButton.Add_Click({ $searchForm.Close() })
+    $searchForm.Controls.Add($cancelButton)
+    
+    $refreshButton = New-Object System.Windows.Forms.Button
+    $refreshButton.Text = "Refresh"
+    $refreshButton.Location = New-Object System.Drawing.Point(20, 390)
+    $refreshButton.Size = New-Object System.Drawing.Size(100, 35)
+    $refreshButton.Add_Click({ Refresh-ProjectList })
+    $searchForm.Controls.Add($refreshButton)
+    
+    # Status label
+    $statusLabel = New-Object System.Windows.Forms.Label
+    $statusLabel.Text = "Ready"
+    $statusLabel.Location = New-Object System.Drawing.Point(140, 395)
+    $statusLabel.Size = New-Object System.Drawing.Size(250, 20)
+    $statusLabel.ForeColor = [System.Drawing.Color]::Blue
+    $searchForm.Controls.Add($statusLabel)
+    
+    # Local functions for the modal
+    function Refresh-ProjectList {
+        $statusLabel.Text = "Loading projects..."
+        $searchForm.Refresh()
+        
+        try {
+            $projects = Get-AvailableProjects -projectsRootPath $rootTextBox.Text
+            $resultsListView.Items.Clear()
+            
+            if ($projects.Count -eq 0) {
+                $statusLabel.Text = "No projects found"
+                $statusLabel.ForeColor = [System.Drawing.Color]::Orange
+                return
+            }
+            
+            foreach ($project in $projects) {
+                $item = New-Object System.Windows.Forms.ListViewItem($project.Name)
+                $item.SubItems.Add($project.FullPath)
+                $item.SubItems.Add($project.LastModified.ToString("MM/dd/yyyy HH:mm"))
+                $sizeText = if ($project.Size -gt 0) { "$([math]::Round($project.Size / 1MB, 1)) MB" } else { "N/A" }
+                $item.SubItems.Add($sizeText)
+                $item.Tag = $project
+                $resultsListView.Items.Add($item) | Out-Null
+            }
+            
+            $statusLabel.Text = "$($projects.Count) projects found"
+            $statusLabel.ForeColor = [System.Drawing.Color]::Green
+        } catch {
+            $statusLabel.Text = "Error loading projects: $($_.Exception.Message)"
+            $statusLabel.ForeColor = [System.Drawing.Color]::Red
+        }
+    }
+    
+    function Sort-ListView {
+        param([System.Windows.Forms.ColumnClickEventArgs]$e)
+        
+        $column = $e.Column
+        $listView = $e.ListView
+        
+        if ($listView.Tag -eq $column) {
+            $listView.Sorting = if ($listView.Sorting -eq [System.Windows.Forms.SortOrder]::Ascending) { 
+                [System.Windows.Forms.SortOrder]::Descending 
+            } else { 
+                [System.Windows.Forms.SortOrder]::Ascending 
+            }
+        } else {
+            $listView.Sorting = [System.Windows.Forms.SortOrder]::Ascending
+        }
+        
+        $listView.Tag = $column
+        Sort-ListViewItems -listView $listView -column $column -sortOrder $listView.Sorting
+    }
+    
+    # Search functionality with debouncing
+    $searchTimer = New-Object System.Windows.Forms.Timer
+    $searchTimer.Interval = 300
+    $searchTimer.Add_Tick({
+        $searchTimer.Stop()
+        $searchText = $searchTextBox.Text.ToLower()
+        
+        if ($searchText.Length -eq 0) {
+            foreach ($item in $resultsListView.Items) {
+                $item.Visible = $true
+            }
+            return
+        }
+        
+        foreach ($item in $resultsListView.Items) {
+            $projectName = $item.Text.ToLower()
+            $projectPath = $item.SubItems[1].Text.ToLower()
+            
+            # Case-insensitive substring match, treat hyphens/underscores/spaces equivalently
+            $normalizedName = $projectName -replace '[-_\s]', ''
+            $normalizedSearch = $searchText -replace '[-_\s]', ''
+            
+            $isMatch = $projectName.Contains($searchText) -or 
+                      $projectPath.Contains($searchText) -or
+                      $normalizedName.Contains($normalizedSearch)
+            
+            $item.Visible = $isMatch
+        }
+        
+        $visibleCount = ($resultsListView.Items | Where-Object { $_.Visible }).Count
+        $statusLabel.Text = "$visibleCount projects match search"
+        $statusLabel.ForeColor = [System.Drawing.Color]::Blue
+    })
+    
+    $searchTextBox.Add_TextChanged({
+        $searchTimer.Stop()
+        $searchTimer.Start()
+    })
+    
+    # ListView selection change
+    $resultsListView.Add_SelectedIndexChanged({
+        $selectButton.Enabled = $resultsListView.SelectedItems.Count -gt 0
+    })
+    
+    # Double-click to select
+    $resultsListView.Add_DoubleClick({
+        if ($resultsListView.SelectedItems.Count -gt 0) {
+            $selectButton.PerformClick()
+        }
+    })
+    
+    # Initial load
+    Refresh-ProjectList
+    
+    # Show the modal
+    $result = $searchForm.ShowDialog()
+    return $result
+}
+
+# PowerShell-based ListView sorting function
+function Sort-ListViewItems {
+    param(
+        [System.Windows.Forms.ListView]$listView,
+        [int]$column,
+        [System.Windows.Forms.SortOrder]$sortOrder
+    )
+    
+    $items = @()
+    foreach ($item in $listView.Items) {
+        $items += $item
+    }
+    
+    if ($sortOrder -eq [System.Windows.Forms.SortOrder]::Ascending) {
+        $sortedItems = $items | Sort-Object { $_.SubItems[$column].Text }
+    } else {
+        $sortedItems = $items | Sort-Object { $_.SubItems[$column].Text } -Descending
+    }
+    
+    $listView.Items.Clear()
+    foreach ($item in $sortedItems) {
+        $listView.Items.Add($item) | Out-Null
+    }
+}
+
+function Update-SourceDisplay {
+    if ($script:infoLabel) {
+        $script:infoLabel.Text = "Project: $($script:projectFolderName)`nSource: $($script:sourceDir)"
+    }
+}
 
 function Get-DriveType {
     param([string]$path)
@@ -1773,7 +2063,7 @@ function Show-SkippedFilesInfo {
     
     # Info icon and message
     $iconLabel = New-Object System.Windows.Forms.Label
-    $iconLabel.Text = "ℹ️"
+    $iconLabel.Text = "Info"
     $iconLabel.Font = New-Object System.Drawing.Font("Segoe UI", 24)
     $iconLabel.Location = New-Object System.Drawing.Point(20, 20)
     $iconLabel.Size = New-Object System.Drawing.Size(50, 50)
@@ -1802,7 +2092,8 @@ function Show-SkippedFilesInfo {
     foreach ($file in $skippedFiles | Select-Object -First 50) {  # Limit to first 50 for performance
         $sizeInfo = "$(Format-FileSize $file.SourceSize) -> $(Format-FileSize $file.DestSize)"
         $dateInfo = $file.DestModified.ToString("yyyy-MM-dd HH:mm")
-        $fileListBox.Items.Add("$($file.RelativePath) ($sizeInfo, dest modified: $dateInfo)")
+        $itemText = "$($file.RelativePath) ($sizeInfo, dest modified: $dateInfo)"
+        $fileListBox.Items.Add($itemText)
     }
     
     if ($skippedFiles.Count -gt 50) {
@@ -2031,7 +2322,8 @@ function Copy-FolderWithRobocopy {
                 $waitCount++
                 if ($waitCount % 50 -eq 0) {  # Every 5 seconds
                     $elapsedMs = $waitCount * 100
-                    Write-Status "DEBUG: Still waiting for robocopy... ($elapsedMs ms elapsed)"
+                    $statusText = "DEBUG: Still waiting for robocopy... ($elapsedMs ms elapsed)"
+                    Write-Status $statusText
                 }
                 [System.Windows.Forms.Application]::DoEvents()
             }
@@ -3872,12 +4164,21 @@ function Create-GUI {
     $script:form.Controls.Add($headerLabel)
     
     # Project info
-    $infoLabel = New-Object System.Windows.Forms.Label
-    $infoLabel.Text = "Project: $projectFolderName`nSource: $sourceDir"
-    $infoLabel.Location = New-Object System.Drawing.Point(20, 60)
-    $infoLabel.Size = New-Object System.Drawing.Size(650, 40)
-    $infoLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8)
-    $script:form.Controls.Add($infoLabel)
+    $script:infoLabel = New-Object System.Windows.Forms.Label
+    $script:infoLabel.Text = "Project: $projectFolderName`nSource: $sourceDir"
+    $script:infoLabel.Location = New-Object System.Drawing.Point(20, 60)
+    $script:infoLabel.Size = New-Object System.Drawing.Size(400, 40)
+    $script:infoLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+    $script:form.Controls.Add($script:infoLabel)
+    
+    # Search Projects button
+    $script:searchProjectsButton = New-Object System.Windows.Forms.Button
+    $script:searchProjectsButton.Text = "Search Projects..."
+    $script:searchProjectsButton.Location = New-Object System.Drawing.Point(440, 60)
+    $script:searchProjectsButton.Size = New-Object System.Drawing.Size(120, 35)
+    $script:searchProjectsButton.Add_Click({ Show-ProjectSearchModal })
+    $script:form.Controls.Add($script:searchProjectsButton)
+    $toolTip.SetToolTip($script:searchProjectsButton, "Search for and select a project from the Projects root directory.")
     
     # Browse button
     $script:browseButton = New-Object System.Windows.Forms.Button
