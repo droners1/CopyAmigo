@@ -16,7 +16,7 @@ $script:destinationDir = ""
 $script:selectedSubfolders = @()
 $script:cancelRequested = $false
 $script:activeProcesses = @()
-$script:projectsRoot = "C:\Projects"  # Default projects root path
+$script:projectsRoot = "H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS"  # Default projects root path
 
 # OPTIMIZATION VARIABLES
 $script:sourceDriveType = ""
@@ -512,7 +512,7 @@ function Start-WindowsStyleCopy {
 }
 
 # Auto-detect destination
-$script:projectsRoot = "C:\Projects"
+$script:projectsRoot = "H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS"
 $auto_destination = ""
 if (Test-Path $script:projectsRoot) {
     $matchingProjects = Get-ChildItem $script:projectsRoot -Directory | Where-Object { 
@@ -620,7 +620,20 @@ function Show-ProjectSearchModal {
     $searchTextBox = New-Object System.Windows.Forms.TextBox
     $searchTextBox.Location = New-Object System.Drawing.Point(130, 58)
     $searchTextBox.Size = New-Object System.Drawing.Size(400, 25)
-    $searchTextBox.PlaceholderText = "Type to search project names..."
+    $searchTextBox.Text = "Type to search project names..."
+    $searchTextBox.ForeColor = [System.Drawing.Color]::Gray
+    $searchTextBox.Add_GotFocus({
+        if ($searchTextBox.Text -eq "Type to search project names...") {
+            $searchTextBox.Text = ""
+            $searchTextBox.ForeColor = [System.Drawing.Color]::Black
+        }
+    })
+    $searchTextBox.Add_LostFocus({
+        if ($searchTextBox.Text -eq "") {
+            $searchTextBox.Text = "Type to search project names..."
+            $searchTextBox.ForeColor = [System.Drawing.Color]::Gray
+        }
+    })
     $searchForm.Controls.Add($searchTextBox)
     
     # Results list
