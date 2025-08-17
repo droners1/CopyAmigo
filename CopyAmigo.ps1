@@ -18,7 +18,45 @@ $script:destinationDir = ""
 $script:selectedSubfolders = @()
 $script:cancelRequested = $false
 $script:activeProcesses = @()
-$script:projectsRoot = "H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS"  # Default projects root path
+# Determine default Projects root (prefer H:, else C:\Projects, else prompt once)
+# Check if H: drive is actually accessible for operations, not just if path exists
+$hDriveAccessible = $false
+if (Test-Path 'H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS') {
+    try {
+        # Test if we can actually write to the H: drive by attempting to create a test file
+        $testFile = 'H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS\CopyAmigo_Test_Access.tmp'
+        $null = New-Item -ItemType File -Path $testFile -Force -ErrorAction Stop
+        Remove-Item $testFile -Force -ErrorAction SilentlyContinue
+        $hDriveAccessible = $true
+    } catch {
+        $hDriveAccessible = $false
+        Write-Host "H: drive exists but is not accessible for operations: $($_.Exception.Message)"
+    }
+}
+
+if ($hDriveAccessible) {
+    $script:projectsRoot = 'H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS'
+    Write-Host "Using H: drive as projects root: $script:projectsRoot"
+} elseif (Test-Path 'C:\Projects') {
+    $script:projectsRoot = 'C:\Projects'
+    Write-Host "Using C:\Projects as projects root: $script:projectsRoot"
+} else {
+    try {
+        $fb = New-Object System.Windows.Forms.FolderBrowserDialog
+        $fb.Description = 'Select the Projects root folder'
+        if ($fb.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK -and $fb.SelectedPath) {
+            $script:projectsRoot = $fb.SelectedPath
+            Write-Host "User selected projects root: $script:projectsRoot"
+        } else {
+            $script:projectsRoot = 'C:\Projects'
+            Write-Host "User cancelled, defaulting to C:\Projects: $script:projectsRoot"
+        }
+    } finally { if ($fb) { $fb.Dispose() } }
+}
+
+# IMPORTANT: Always use C:\Projects for destinations, regardless of source projects root
+$script:destinationRoot = 'C:\Projects'
+Write-Host "Destination root set to: $script:destinationRoot"
 
 # OPTIMIZATION VARIABLES
 $script:sourceDriveType = ""
@@ -514,7 +552,7 @@ function Start-WindowsStyleCopy {
 }
 
 # Projects root for source projects (not destination)
-$script:projectsRoot = "H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS"
+    # $script:projectsRoot is set at startup (see top of file)
 
 # GUI control variables
 $script:form = $null
@@ -912,7 +950,7 @@ function Enable-CopyModeSelection {
     }
     
     # Refresh Terrascan Tscan subfolder list if Terrascan mode is currently selected
-    if ($script:terrascanRadio -and $script:terrascanRadio.Checked) {
+    if ($script:terrascanRadio -and $script:terrascanRadio.Checked -and $script:terrascanTscanCheckList) {
         $script:terrascanTscanCheckList.Items.Clear()
         $terrascanSubfolders = Get-TerrascanTscanSubfolders
         if ($terrascanSubfolders -and $terrascanSubfolders.Count -gt 0) {
@@ -929,7 +967,10 @@ function Enable-CopyModeSelection {
 
 function Get-DriveType {
     param([string]$path)
-    
+
+    # UNC paths are network shares
+    if ($path -and $path -like '\\\\*') { return 'Network' }
+
     try {
         $driveLetter = (Get-Item $path).PSDrive.Name + ":"
         $driveInfo = Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DeviceID -eq $driveLetter }
@@ -1092,7 +1133,7 @@ function Start-DirectCopy {
                 $script:activeProcesses += $process
                 
                 # Wait for completion with progress updates
-                $processTimeout = 300000  # 5 minutes
+                $processTimeout = 2147483647  # effectively no timeout
                 $checkInterval = 1000     # 1 second
                 $elapsedTime = 0
                 
@@ -2225,14 +2266,7 @@ function Show-SkippedFilesInfo {
     $infoForm.Dispose()
 }
 
-function Format-FileSize {
-    param([long]$bytes)
-    
-    if ($bytes -lt 1KB) { return "$bytes B" }
-    elseif ($bytes -lt 1MB) { return "$([math]::Round($bytes/1KB, 1)) KB" }
-    elseif ($bytes -lt 1GB) { return "$([math]::Round($bytes/1MB, 1)) MB" }
-    else { return "$([math]::Round($bytes/1GB, 2)) GB" }
-}
+# (removed duplicate) — use the earlier Format-FileSize implementation
 
 function Update-AccurateProgress {
     if (-not $script:globalProgress.TotalFiles -or -not $script:globalProgress.TotalSize) {
@@ -2501,17 +2535,20 @@ function Copy-FolderWithRobocopy {
                 Write-Status "DEBUG: Robocopy error output: $errorOutput"
             }
             
-            # Check exit code (robocopy uses different codes than typical)
-            if ($process.ExitCode -le 3) {  # 0-3 are success codes for robocopy
-                Write-Status "DEBUG: Exit code $($process.ExitCode) indicates success"
+            # Check exit code (robocopy uses nonstandard codes)
+            $code = $process.ExitCode
+            if ($code -le 3) {
                 Write-Status "$folderName copied successfully"
                 Write-Status "=== ROBOCOPY DEBUG END for $folderName ==="
                 return $true
-            } else {
-                Write-Status "DEBUG: Exit code $($process.ExitCode) indicates issues"
-                Write-Status "Warning: $folderName copy completed with code $($process.ExitCode)"
+            } elseif ($code -lt 8) {
+                Write-Status "Warning: $folderName completed with warnings (code $code)"
                 Write-Status "=== ROBOCOPY DEBUG END for $folderName ==="
-                return $true  # Still consider it successful for most cases
+                return $true
+            } else {
+                Write-Status "ERROR: $folderName copy failed (code $code)"
+                Write-Status "=== ROBOCOPY DEBUG END for $folderName ==="
+                return $false
             }
             
         } catch {
@@ -2653,12 +2690,14 @@ function Copy-FolderWithOptimization {
             if ($exitCode -le 3) {
                 Write-Status "OPTIMIZED: [OK] $folderName copied successfully"
                 return $true
-            } else {
+            } elseif ($exitCode -lt 8) {
                 Write-Status "OPTIMIZED: [WARNING] $folderName completed with warnings (code: $exitCode)"
-                if ($errorOutput) {
-                    Write-Status "OPTIMIZED: Error details: $errorOutput"
-                }
-                return $true  # Still consider successful for most robocopy codes
+                if ($errorOutput) { Write-Status "OPTIMIZED: Error details: $errorOutput" }
+                return $true
+            } else {
+                Write-Status "OPTIMIZED: [ERROR] $folderName copy failed (code: $exitCode)"
+                if ($errorOutput) { Write-Status "OPTIMIZED: Error details: $errorOutput" }
+                return $false
             }
             
         } catch {
@@ -4315,36 +4354,63 @@ function Cleanup-ActiveProcesses {
 }
 
 function Browse-DestinationFolder {
-    # Hard-coded destination to C:\Projects
-    if (Test-Path "C:\Projects") {
-        $script:destinationDir = Join-Path "C:\Projects" $script:projectFolderName
+    # Always use C:\Projects for destinations, regardless of source projects root
+    if (-not $script:destinationRoot -or -not (Test-Path $script:destinationRoot)) {
+        try { 
+            New-Item -ItemType Directory -Path 'C:\Projects' -Force | Out-Null 
+            $script:destinationRoot = 'C:\Projects'
+        } catch {
+            Write-Status "ERROR: Cannot create C:\Projects directory - $($_.Exception.Message)"
+            return
+        }
+    }
+
+    $script:destinationDir = Join-Path $script:destinationRoot $script:projectFolderName
+    try {
+        if (-not (Test-Path $script:destinationDir)) {
+            New-Item -ItemType Directory -Path $script:destinationDir -Force | Out-Null
+        }
+    } catch {
+        Write-Status "ERROR: Cannot create destination '$script:destinationDir' - $($_.Exception.Message)"
+    }
+
+    if ($script:destinationTextBox) {
         $script:destinationTextBox.Text = $script:destinationDir
         $script:destinationTextBox.ForeColor = [System.Drawing.Color]::Black
-        Write-Status "Destination updated to: $script:destinationDir"
-        Update-CopyButtonState
-    } else {
-        Write-Status "ERROR: C:\Projects directory not found. Please create it first."
-        [System.Windows.Forms.MessageBox]::Show("C:\Projects directory not found. Please create the C:\Projects folder first.", "Destination Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
     }
+    Write-Status "Destination updated to: $script:destinationDir"
+    Update-CopyButtonState
 }
 
 function Auto-DetectDestination {
-    # Update destination to C:\Projects\[ProjectName] when a project is selected
-    if (Test-Path "C:\Projects") {
-        $script:destinationDir = Join-Path "C:\Projects" $script:projectFolderName
-        
-        if ($script:destinationTextBox) {
-            $script:destinationTextBox.Text = $script:destinationDir
-            $script:destinationTextBox.ForeColor = [System.Drawing.Color]::Blue
-            $script:destinationTextBox.Refresh()
+    # Set destination to C:\Projects\[ProjectName] when a project is selected
+    if (-not $script:destinationRoot -or -not (Test-Path $script:destinationRoot)) {
+        try { 
+            New-Item -ItemType Directory -Path 'C:\Projects' -Force | Out-Null 
+            $script:destinationRoot = 'C:\Projects'
+        } catch {
+            Write-Status "ERROR: Cannot create C:\Projects directory - $($_.Exception.Message)"
+            return
         }
-        
-        Write-Status "Destination updated to: $script:destinationDir"
-        Update-CopyButtonState
-    } else {
-        Write-Status "ERROR: C:\Projects directory not found. Please create it first."
-        [System.Windows.Forms.MessageBox]::Show("C:\Projects directory not found. Please create the C:\Projects folder first.", "Destination Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
     }
+
+    $script:destinationDir = Join-Path $script:destinationRoot $script:projectFolderName
+
+    try {
+        if (-not (Test-Path $script:destinationDir)) {
+            New-Item -ItemType Directory -Path $script:destinationDir -Force | Out-Null
+        }
+    } catch {
+        Write-Status "ERROR: Cannot create destination '$script:destinationDir' - $($_.Exception.Message)"
+    }
+
+    if ($script:destinationTextBox) {
+        $script:destinationTextBox.Text = $script:destinationDir
+        $script:destinationTextBox.ForeColor = [System.Drawing.Color]::Blue
+        $script:destinationTextBox.Refresh()
+    }
+    Write-Status "Destination updated to: $script:destinationDir"
+    Update-CopyButtonState
 }
 
 function Create-GUI {
@@ -4655,7 +4721,7 @@ try {
     $script:form.Add_Shown({
         $script:form.Activate()
         # Don't auto-set destination on initial load - just show C:\Projects
-        $script:destinationDir = "C:\Projects"
+        $script:destinationDir = $script:destinationRoot
         Update-CopyButtonState
         
         # Enable copy mode selection if a project is already selected
