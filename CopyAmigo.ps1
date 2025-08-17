@@ -577,71 +577,71 @@ function Show-ProjectSearchModal {
     
     # Create the modal form
     Write-Host "Creating modal form..."
-    $searchForm = New-Object System.Windows.Forms.Form
+    $script:searchForm = New-Object System.Windows.Forms.Form
     Write-Host "Form object created"
-    $searchForm.Text = "Search Projects"
-    $searchForm.Size = New-Object System.Drawing.Size(700, 500)
-    $searchForm.StartPosition = "CenterParent"
-    $searchForm.FormBorderStyle = "FixedDialog"
-    $searchForm.MaximizeBox = $false
-    $searchForm.MinimizeBox = $false
-    $searchForm.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    $script:searchForm.Text = "Search Projects"
+    $script:searchForm.Size = New-Object System.Drawing.Size(700, 500)
+    $script:searchForm.StartPosition = "CenterParent"
+    $script:searchForm.FormBorderStyle = "FixedDialog"
+    $script:searchForm.MaximizeBox = $false
+    $script:searchForm.MinimizeBox = $false
+    $script:searchForm.Font = New-Object System.Drawing.Font("Segoe UI", 10)
     Write-Host "Form properties set"
     
-    # Projects root configuration
+    # Search box (now at top)
+    $searchLabel = New-Object System.Windows.Forms.Label
+    $searchLabel.Text = "Search Projects:"
+    $searchLabel.Location = New-Object System.Drawing.Point(20, 20)
+    $searchLabel.Size = New-Object System.Drawing.Size(100, 20)
+    $searchForm.Controls.Add($searchLabel)
+    
+    $script:searchTextBox = New-Object System.Windows.Forms.TextBox
+    $script:searchTextBox.Location = New-Object System.Drawing.Point(130, 18)
+    $script:searchTextBox.Size = New-Object System.Drawing.Size(400, 25)
+    $script:searchTextBox.Text = "Type to search project names..."
+    $script:searchTextBox.ForeColor = [System.Drawing.Color]::Gray
+    $script:searchTextBox.Add_GotFocus({
+        if ($script:searchTextBox.Text -eq "Type to search project names...") {
+            $script:searchTextBox.Text = ""
+            $script:searchTextBox.ForeColor = [System.Drawing.Color]::Black
+        }
+    })
+    $script:searchTextBox.Add_LostFocus({
+        if ($script:searchTextBox.Text -eq "") {
+            $script:searchTextBox.Text = "Type to search project names..."
+            $script:searchTextBox.ForeColor = [System.Drawing.Color]::Gray
+        }
+    })
+    $script:searchForm.Controls.Add($script:searchTextBox)
+    
+    # Projects root configuration (now below search)
     $rootLabel = New-Object System.Windows.Forms.Label
     $rootLabel.Text = "Projects Root:"
-    $rootLabel.Location = New-Object System.Drawing.Point(20, 20)
+    $rootLabel.Location = New-Object System.Drawing.Point(20, 60)
     $rootLabel.Size = New-Object System.Drawing.Size(100, 20)
     $searchForm.Controls.Add($rootLabel)
     
-    $rootTextBox = New-Object System.Windows.Forms.TextBox
-    $rootTextBox.Text = $script:projectsRoot
-    $rootTextBox.Location = New-Object System.Drawing.Point(130, 18)
-    $rootTextBox.Size = New-Object System.Drawing.Size(400, 25)
-    $searchForm.Controls.Add($rootTextBox)
+    $script:rootTextBox = New-Object System.Windows.Forms.TextBox
+    $script:rootTextBox.Text = $script:projectsRoot
+    $script:rootTextBox.Location = New-Object System.Drawing.Point(130, 58)
+    $script:rootTextBox.Size = New-Object System.Drawing.Size(400, 25)
+    $script:searchForm.Controls.Add($script:rootTextBox)
     
-    $browseRootButton = New-Object System.Windows.Forms.Button
-    $browseRootButton.Text = "Browse"
-    $browseRootButton.Location = New-Object System.Drawing.Point(540, 18)
-    $browseRootButton.Size = New-Object System.Drawing.Size(80, 25)
-    $browseRootButton.Add_Click({
+    $script:browseRootButton = New-Object System.Windows.Forms.Button
+    $script:browseRootButton.Text = "Browse"
+    $script:browseRootButton.Location = New-Object System.Drawing.Point(540, 58)
+    $script:browseRootButton.Size = New-Object System.Drawing.Size(80, 25)
+    $script:browseRootButton.Add_Click({
         $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
         $folderBrowser.Description = "Select Projects Root Directory"
-        $folderBrowser.SelectedPath = $rootTextBox.Text
+        $folderBrowser.SelectedPath = $script:rootTextBox.Text
         if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $rootTextBox.Text = $folderBrowser.SelectedPath
+            $script:rootTextBox.Text = $folderBrowser.SelectedPath
             $script:projectsRoot = $folderBrowser.SelectedPath
             Refresh-ProjectList
         }
     })
-    $searchForm.Controls.Add($browseRootButton)
-    
-    # Search box
-    $searchLabel = New-Object System.Windows.Forms.Label
-    $searchLabel.Text = "Search Projects:"
-    $searchLabel.Location = New-Object System.Drawing.Point(20, 60)
-    $searchLabel.Size = New-Object System.Drawing.Size(100, 20)
-    $searchForm.Controls.Add($searchLabel)
-    
-    $searchTextBox = New-Object System.Windows.Forms.TextBox
-    $searchTextBox.Location = New-Object System.Drawing.Point(130, 58)
-    $searchTextBox.Size = New-Object System.Drawing.Size(400, 25)
-    $searchTextBox.Text = "Type to search project names..."
-    $searchTextBox.ForeColor = [System.Drawing.Color]::Gray
-    $searchTextBox.Add_GotFocus({
-        if ($searchTextBox.Text -eq "Type to search project names...") {
-            $searchTextBox.Text = ""
-            $searchTextBox.ForeColor = [System.Drawing.Color]::Black
-        }
-    })
-    $searchTextBox.Add_LostFocus({
-        if ($searchTextBox.Text -eq "") {
-            $searchTextBox.Text = "Type to search project names..."
-            $searchTextBox.ForeColor = [System.Drawing.Color]::Gray
-        }
-    })
-    $searchForm.Controls.Add($searchTextBox)
+    $script:searchForm.Controls.Add($script:browseRootButton)
     
     # Results list
     $resultsLabel = New-Object System.Windows.Forms.Label
@@ -650,20 +650,20 @@ function Show-ProjectSearchModal {
     $resultsLabel.Size = New-Object System.Drawing.Size(150, 20)
     $searchForm.Controls.Add($resultsLabel)
     
-    $resultsListView = New-Object System.Windows.Forms.ListView
-    $resultsListView.View = [System.Windows.Forms.View]::Details
-    $resultsListView.FullRowSelect = $true
-    $resultsListView.GridLines = $true
-    $resultsListView.Location = New-Object System.Drawing.Point(20, 125)
-    $resultsListView.Size = New-Object System.Drawing.Size(650, 250)
-    $resultsListView.FullRowSelect = $true
-    $resultsListView.GridLines = $false
-    $resultsListView.Add_ColumnClick({ Sort-ListView $_.Column })
+    $script:resultsListView = New-Object System.Windows.Forms.ListView
+    $script:resultsListView.View = [System.Windows.Forms.View]::Details
+    $script:resultsListView.FullRowSelect = $true
+    $script:resultsListView.GridLines = $true
+    $script:resultsListView.Location = New-Object System.Drawing.Point(20, 125)
+    $script:resultsListView.Size = New-Object System.Drawing.Size(650, 250)
+    $script:resultsListView.FullRowSelect = $true
+    $script:resultsListView.GridLines = $false
+    $script:resultsListView.Add_ColumnClick({ Sort-ListView $_.Column })
     
     # Add columns
-    $resultsListView.Columns.Add("Project Name", 600)
+    $script:resultsListView.Columns.Add("Project Name", 600)
     
-    $searchForm.Controls.Add($resultsListView)
+    $script:searchForm.Controls.Add($script:resultsListView)
     
     # Buttons
     $selectButton = New-Object System.Windows.Forms.Button
@@ -688,6 +688,11 @@ function Show-ProjectSearchModal {
             }
             
             $searchForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            # Stop and dispose the search timer before closing
+            if ($script:searchTimer) {
+                $script:searchTimer.Stop()
+                $script:searchTimer.Dispose()
+            }
             $searchForm.Close()
         }
     })
@@ -697,7 +702,13 @@ function Show-ProjectSearchModal {
     $cancelButton.Text = "Cancel"
     $cancelButton.Location = New-Object System.Drawing.Point(540, 390)
     $cancelButton.Size = New-Object System.Drawing.Size(100, 35)
-    $cancelButton.Add_Click({ $searchForm.Close() })
+    $cancelButton.Add_Click({ 
+        # Stop and dispose the search timer before closing
+        if ($script:searchTimer) {
+            $script:searchTimer.Dispose()
+        }
+        $script:searchForm.Close() 
+    })
     $searchForm.Controls.Add($cancelButton)
     
     $refreshButton = New-Object System.Windows.Forms.Button
@@ -708,28 +719,28 @@ function Show-ProjectSearchModal {
     $searchForm.Controls.Add($refreshButton)
     
     # Status label
-    $statusLabel = New-Object System.Windows.Forms.Label
-    $statusLabel.Text = "Ready"
-    $statusLabel.Location = New-Object System.Drawing.Point(140, 395)
-    $statusLabel.Size = New-Object System.Drawing.Size(250, 20)
-    $statusLabel.ForeColor = [System.Drawing.Color]::Blue
-    $searchForm.Controls.Add($statusLabel)
+    $script:statusLabel = New-Object System.Windows.Forms.Label
+    $script:statusLabel.Text = "Ready"
+    $script:statusLabel.Location = New-Object System.Drawing.Point(140, 395)
+    $script:statusLabel.Size = New-Object System.Drawing.Size(250, 20)
+    $script:statusLabel.ForeColor = [System.Drawing.Color]::Blue
+    $script:searchForm.Controls.Add($script:statusLabel)
     
     # Local functions for the modal
     function Refresh-ProjectList {
-        $statusLabel.Text = "Loading projects..."
-        $searchForm.Refresh()
+        $script:statusLabel.Text = "Loading projects..."
+        $script:searchForm.Refresh()
         
         try {
-            Write-Host "Getting available projects from: $($rootTextBox.Text)"
-            $projects = Get-AvailableProjects -projectsRootPath $rootTextBox.Text
+            Write-Host "Getting available projects from: $($script:rootTextBox.Text)"
+            $projects = Get-AvailableProjects -projectsRootPath $script:rootTextBox.Text
             Write-Host "Found $($projects.Count) projects"
             
-            $resultsListView.Items.Clear()
+            $script:resultsListView.Items.Clear()
             
             if ($projects.Count -eq 0) {
-                $statusLabel.Text = "No projects found"
-                $statusLabel.ForeColor = [System.Drawing.Color]::Orange
+                $script:statusLabel.Text = "No projects found"
+                $script:statusLabel.ForeColor = [System.Drawing.Color]::Orange
                 return
             }
             
@@ -739,15 +750,15 @@ function Show-ProjectSearchModal {
             foreach ($project in $projects) {
                 $item = New-Object System.Windows.Forms.ListViewItem($project.Name)
                 $item.Tag = $project
-                $resultsListView.Items.Add($item) | Out-Null
+                $script:resultsListView.Items.Add($item) | Out-Null
             }
             
-            $statusLabel.Text = "$($projects.Count) projects loaded"
-            $statusLabel.ForeColor = [System.Drawing.Color]::Green
+            $script:statusLabel.Text = "$($projects.Count) projects loaded"
+            $script:statusLabel.ForeColor = [System.Drawing.Color]::Green
         } catch {
             Write-Host "Error in Refresh-ProjectList: $($_.Exception.Message)"
-            $statusLabel.Text = "Error loading projects: $($_.Exception.Message)"
-            $statusLabel.ForeColor = [System.Drawing.Color]::Red
+            $script:statusLabel.Text = "Error loading projects: $($_.Exception.Message)"
+            $script:statusLabel.ForeColor = [System.Drawing.Color]::Red
         }
     }
     
@@ -772,11 +783,11 @@ function Show-ProjectSearchModal {
     }
     
     # Search functionality with debouncing
-    $searchTimer = New-Object System.Windows.Forms.Timer
-    $searchTimer.Interval = 300
-    $searchTimer.Add_Tick({
-        $searchTimer.Stop()
-        $searchText = $searchTextBox.Text.ToLower()
+    $script:searchTimer = New-Object System.Windows.Forms.Timer
+    $script:searchTimer.Interval = 300
+    $script:searchTimer.Add_Tick({
+        $script:searchTimer.Stop()
+        $searchText = $script:searchTextBox.Text.ToLower()
         Write-Host "Search timer triggered with text: '$searchText'"
         
         if ($searchText.Length -eq 0) {
@@ -786,12 +797,12 @@ function Show-ProjectSearchModal {
             return
         }
         
-        Write-Host "Filtering $($resultsListView.Items.Count) items..."
+        Write-Host "Filtering $($script:resultsListView.Items.Count) items..."
         # Filter items by removing non-matching ones
         $itemsToRemove = @()
         $matchCount = 0
         
-        foreach ($item in $resultsListView.Items) {
+        foreach ($item in $script:resultsListView.Items) {
             $projectName = $item.Text.ToLower()
             
             # Case-insensitive substring match, treat hyphens/underscores/spaces equivalently
@@ -813,12 +824,14 @@ function Show-ProjectSearchModal {
         
         # Remove non-matching items
         foreach ($item in $itemsToRemove) {
-            $resultsListView.Items.Remove($item)
+            $script:resultsListView.Items.Remove($item)
         }
         
-        $visibleCount = $resultsListView.Items.Count
-        $statusLabel.Text = "$visibleCount projects match search"
-        $statusLabel.ForeColor = [System.Drawing.Color]::Blue
+        $visibleCount = $script:resultsListView.Items.Count
+        if ($script:statusLabel) {
+            $script:statusLabel.Text = "$visibleCount projects match search"
+            $script:statusLabel.ForeColor = [System.Drawing.Color]::Blue
+        }
         Write-Host "Search complete: $visibleCount items remaining"
     })
     
@@ -846,7 +859,7 @@ function Show-ProjectSearchModal {
     
     # Show the modal
     Write-Host "About to show modal with ShowDialog()..."
-    $result = $searchForm.ShowDialog()
+    $result = $script:searchForm.ShowDialog()
     Write-Host "ShowDialog completed with result: $result"
     return $result
 }
@@ -879,6 +892,23 @@ function Sort-ListViewItems {
 function Update-SourceDisplay {
     if ($script:infoLabel) {
         $script:infoLabel.Text = "Project: $($script:projectFolderName)`nSource: $($script:sourceDir)"
+    }
+    
+    # Enable copy mode selection when a project is selected
+    Enable-CopyModeSelection
+}
+
+function Enable-CopyModeSelection {
+    # Enable all copy mode radio buttons when a project is selected
+    if ($script:initialCloudRadio) { $script:initialCloudRadio.Enabled = $true }
+    if ($script:terrascanRadio) { $script:terrascanRadio.Enabled = $true }
+    if ($script:orthomosaicRadio) { $script:orthomosaicRadio.Enabled = $true }
+    if ($script:tscanRadio) { $script:tscanRadio.Enabled = $true }
+    
+    # Update the instruction label to show copy modes are now available
+    if ($script:copyModeInstructionLabel) {
+        $script:copyModeInstructionLabel.Text = "SUCCESS: Copy modes are now available - select your preferred option below"
+        $script:copyModeInstructionLabel.ForeColor = [System.Drawing.Color]::DarkGreen
     }
 }
 
@@ -2698,7 +2728,7 @@ function Copy-FolderSkeleton {
 
 function Copy-TscanData {
     Write-Status "=== TSCAN DATA COPY ==="
-    Write-Status "TSCAN: Copies Control, Planning (Boundary & Work Orders), Orthomosaic/Finished Ortho Photos, Tscan/DGN, Tscan/Settings, plus user-selected Tscan subfolders"
+    Write-Status "TSCAN: Copies Control, Planning (Boundary & Work Orders), Tscan/DGN, Tscan/Settings, plus user-selected Tscan subfolders and Macro/trj if they exist"
 
     # System Capabilities Analysis for Tscan
     Write-Status "TSCAN: Analyzing system capabilities for optimal performance..."
@@ -2710,13 +2740,12 @@ function Copy-TscanData {
 
     $overallSuccess = $true
 
-    # Step 1: Copy standard project folders for Tscan workflow
+    # Step 1: Copy standard project folders for Tscan workflow (always copied)
     Write-Status "TSCAN: Copying standard project folders..."
     $standardFolders = @(
         "Control",
         "Planning\Boundary",
         "Planning\Work Orders",
-        "Orthomosaic\Finished Ortho Photos",
         "Tscan\DGN",
         "Tscan\Settings"
     )
@@ -2856,12 +2885,40 @@ function Copy-TscanData {
         $ok = Start-WindowsStyleCopy -sourcePath $src -destPath $dst -folderName "$mainFolder\$folder" -operation "Copying Tscan folder"
         
         if ($script:useWindowsProgressDialog) {
-        Close-WindowsProgressDialog
-    }
+            Close-WindowsProgressDialog
+        }
 
         if ($ok) { 
             $userSuccessCount++ 
             Write-Status "TSCAN: Successfully copied '$mainFolder\$folder'"
+            
+            # Check for and copy Macro and trj folders if they exist within this subfolder
+            $macroSrc = Join-Path $src "Macro"
+            $macroDst = Join-Path $dst "Macro"
+            $trjSrc = Join-Path $src "trj"
+            $trjDst = Join-Path $dst "trj"
+            
+            # Copy Macro folder if it exists
+            if (Test-Path $macroSrc -PathType Container) {
+                Write-Status "TSCAN: Found Macro folder in '$mainFolder\$folder' - copying..."
+                $macroOk = Start-WindowsStyleCopy -sourcePath $macroSrc -destPath $macroDst -folderName "$mainFolder\$folder\Macro" -operation "Copying Macro folder"
+                if ($macroOk) {
+                    Write-Status "TSCAN: Successfully copied Macro folder from '$mainFolder\$folder'"
+                } else {
+                    Write-Status "TSCAN: Failed to copy Macro folder from '$mainFolder\$folder'"
+                }
+            }
+            
+            # Copy trj folder if it exists
+            if (Test-Path $trjSrc -PathType Container) {
+                Write-Status "TSCAN: Found trj folder in '$mainFolder\$folder' - copying..."
+                $trjOk = Start-WindowsStyleCopy -sourcePath $trjSrc -destPath $trjDst -folderName "$mainFolder\$folder\trj" -operation "Copying trj folder"
+                if ($trjOk) {
+                    Write-Status "TSCAN: Successfully copied trj folder from '$mainFolder\$folder'"
+                } else {
+                    Write-Status "TSCAN: Failed to copy trj folder from '$mainFolder\$folder'"
+                }
+            }
         } else {
             Write-Status "TSCAN: Failed to copy '$mainFolder\$folder'"
             $overallSuccess = $false
@@ -4263,12 +4320,23 @@ function Create-GUI {
     $sourceGroupBox.Size = New-Object System.Drawing.Size(650, 465)
     $script:form.Controls.Add($sourceGroupBox)
     
+    # Instruction label for copy mode selection
+    $script:copyModeInstructionLabel = New-Object System.Windows.Forms.Label
+    $script:copyModeInstructionLabel.Text = "IMPORTANT: Please select a project first to enable copy mode selection"
+    $script:copyModeInstructionLabel.Location = New-Object System.Drawing.Point(20, 25)
+    $script:copyModeInstructionLabel.Size = New-Object System.Drawing.Size(600, 25)
+    $script:copyModeInstructionLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $script:copyModeInstructionLabel.ForeColor = [System.Drawing.Color]::DarkOrange
+    $script:copyModeInstructionLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $sourceGroupBox.Controls.Add($script:copyModeInstructionLabel)
+    
     # 1. Initial Cloud Processing radio button
     $script:initialCloudRadio = New-Object System.Windows.Forms.RadioButton
     $script:initialCloudRadio.Text = "Raw Data Processing - Everything needed to process a raw dataset"
-    $script:initialCloudRadio.Location = New-Object System.Drawing.Point(20, 30)
+    $script:initialCloudRadio.Location = New-Object System.Drawing.Point(20, 60)
     $script:initialCloudRadio.Size = New-Object System.Drawing.Size(600, 25)
     $script:initialCloudRadio.Checked = $true
+    $script:initialCloudRadio.Enabled = $false  # Disabled until project is selected
     $script:initialCloudRadio.Add_CheckedChanged({ Update-CopyButtonState })
     $sourceGroupBox.Controls.Add($script:initialCloudRadio)
     $toolTip.SetToolTip($script:initialCloudRadio, "Best for initial cloud processing workflows. Includes control data, planning files, and all raw survey data.")
@@ -4276,8 +4344,9 @@ function Create-GUI {
     # 2. Terrascan Project Setup radio button
     $script:terrascanRadio = New-Object System.Windows.Forms.RadioButton
     $script:terrascanRadio.Text = "Terrascan Project Setup - Complete project setup for Terrascan workflows"
-    $script:terrascanRadio.Location = New-Object System.Drawing.Point(20, 65)
+    $script:terrascanRadio.Location = New-Object System.Drawing.Point(20, 95)
     $script:terrascanRadio.Size = New-Object System.Drawing.Size(600, 25)
+    $script:terrascanRadio.Enabled = $false  # Disabled until project is selected
     $script:terrascanRadio.Add_CheckedChanged({ Update-CopyButtonState })
     $sourceGroupBox.Controls.Add($script:terrascanRadio)
     $toolTip.SetToolTip($script:terrascanRadio, "Complete setup for Terrascan workflows. Includes deliverables, orthomosaic imagery, planning data, and Tscan configurations.")
@@ -4285,8 +4354,9 @@ function Create-GUI {
     # 3. Orthomosaic Processing radio button
     $script:orthomosaicRadio = New-Object System.Windows.Forms.RadioButton
     $script:orthomosaicRadio.Text = "Orthomosaic Processing - Minimal files needed for orthomosaic creation"
-    $script:orthomosaicRadio.Location = New-Object System.Drawing.Point(20, 100)
+    $script:orthomosaicRadio.Location = New-Object System.Drawing.Point(20, 130)
     $script:orthomosaicRadio.Size = New-Object System.Drawing.Size(600, 25)
+    $script:orthomosaicRadio.Enabled = $false  # Disabled until project is selected
     $script:orthomosaicRadio.Add_CheckedChanged({ Update-CopyButtonState })
     $sourceGroupBox.Controls.Add($script:orthomosaicRadio)
     $toolTip.SetToolTip($script:orthomosaicRadio, "Optimized for orthomosaic creation. Includes only essential files: control points, camera data, and reference files.")
@@ -4294,8 +4364,9 @@ function Create-GUI {
     # 4. Tscan radio button
     $script:tscanRadio = New-Object System.Windows.Forms.RadioButton
     $script:tscanRadio.Text = "Tscan - Standard project folders plus selected Tscan data"
-    $script:tscanRadio.Location = New-Object System.Drawing.Point(20, 135)
+    $script:tscanRadio.Location = New-Object System.Drawing.Point(20, 165)
     $script:tscanRadio.Size = New-Object System.Drawing.Size(600, 25)
+    $script:tscanRadio.Enabled = $false  # Disabled until project is selected
     $script:tscanRadio.Add_CheckedChanged({ 
         $script:tscanGroupBox.Enabled = $script:tscanRadio.Checked
         if ($script:tscanRadio.Checked) {
@@ -4321,7 +4392,7 @@ function Create-GUI {
     # Tscan options group
     $script:tscanGroupBox = New-Object System.Windows.Forms.GroupBox
     $script:tscanGroupBox.Text = "Tscan Options"
-    $script:tscanGroupBox.Location = New-Object System.Drawing.Point(50, 175)
+    $script:tscanGroupBox.Location = New-Object System.Drawing.Point(50, 205)
     $script:tscanGroupBox.Size = New-Object System.Drawing.Size(580, 270)
     $script:tscanGroupBox.Enabled = $false
     $sourceGroupBox.Controls.Add($script:tscanGroupBox)
@@ -4438,6 +4509,17 @@ try {
         # Don't auto-set destination on initial load - just show C:\Projects
         $script:destinationDir = "C:\Projects"
         Update-CopyButtonState
+        
+        # Enable copy mode selection if a project is already selected
+        if ($script:projectFolderName -and $script:projectFolderName -ne "Beta 3") {
+            Enable-CopyModeSelection
+        } else {
+            # Ensure instruction label shows the correct message when no project is selected
+            if ($script:copyModeInstructionLabel) {
+                $script:copyModeInstructionLabel.Text = "IMPORTANT: Please select a project first to enable copy mode selection"
+                $script:copyModeInstructionLabel.ForeColor = [System.Drawing.Color]::DarkOrange
+            }
+        }
     })
     
     [System.Windows.Forms.Application]::Run($script:form)
