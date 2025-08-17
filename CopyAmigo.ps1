@@ -30,33 +30,33 @@ if (Test-Path 'H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS') {
         $hDriveAccessible = $true
     } catch {
         $hDriveAccessible = $false
-        Write-Host "H: drive exists but is not accessible for operations: $($_.Exception.Message)"
+        # Removed Write-Host to prevent popups in executable
     }
 }
 
 if ($hDriveAccessible) {
     $script:projectsRoot = 'H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS'
-    Write-Host "Using H: drive as projects root: $script:projectsRoot"
+    # Removed Write-Host to prevent popups in executable
 } elseif (Test-Path 'C:\Projects') {
     $script:projectsRoot = 'C:\Projects'
-    Write-Host "Using C:\Projects as projects root: $script:projectsRoot"
+    # Removed Write-Host to prevent popups in executable
 } else {
     try {
         $fb = New-Object System.Windows.Forms.FolderBrowserDialog
         $fb.Description = 'Select the Projects root folder'
         if ($fb.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK -and $fb.SelectedPath) {
             $script:projectsRoot = $fb.SelectedPath
-            Write-Host "User selected projects root: $script:projectsRoot"
+            # Removed Write-Host to prevent popups in executable
         } else {
             $script:projectsRoot = 'C:\Projects'
-            Write-Host "User cancelled, defaulting to C:\Projects: $script:projectsRoot"
+            # Removed Write-Host to prevent popups in executable
         }
     } finally { if ($fb) { $fb.Dispose() } }
 }
 
 # IMPORTANT: Always use C:\Projects for destinations, regardless of source projects root
 $script:destinationRoot = 'C:\Projects'
-Write-Host "Destination root set to: $script:destinationRoot"
+# Removed Write-Host to prevent popups in executable
 
 # OPTIMIZATION VARIABLES
 $script:sourceDriveType = ""
@@ -575,20 +575,20 @@ function Get-AvailableProjects {
     param([string]$projectsRootPath = $script:projectsRoot)
     
     try {
-        Write-Host "Testing path: $projectsRootPath"
+        # Removed Write-Host to prevent popups in executable
         if (-not (Test-Path $projectsRootPath)) {
-            Write-Host "Path does not exist: $projectsRootPath"
+            # Removed Write-Host to prevent popups in executable
             return @()
         }
         
-        Write-Host "Getting directory listing..."
+        # Removed Write-Host to prevent popups in executable
         $projects = Get-ChildItem $projectsRootPath -Directory -ErrorAction SilentlyContinue | Where-Object {
             # Exclude hidden/system folders and administrative folders (starting with ~)
             -not $_.Attributes.HasFlag([System.IO.FileAttributes]::Hidden) -and
             -not $_.Attributes.HasFlag([System.IO.FileAttributes]::System) -and
             -not $_.Name.StartsWith("~")
         } | ForEach-Object {
-            Write-Host "Processing project: $($_.Name)"
+            # Removed Write-Host to prevent popups in executable
             [PSCustomObject]@{
                 Name = $_.Name
                 FullPath = $_.FullName
@@ -597,12 +597,12 @@ function Get-AvailableProjects {
             }
         }
         
-        Write-Host "Found $($projects.Count) projects, sorting..."
+        # Removed Write-Host to prevent popups in executable
         $sortedProjects = $projects | Sort-Object Name
-        Write-Host "Sorting completed"
+        # Removed Write-Host to prevent popups in executable
         return $sortedProjects
     } catch {
-        Write-Host "ERROR: Failed to enumerate projects: $($_.Exception.Message)"
+        # Removed Write-Host to prevent popups in executable
         return @()
     }
 }
@@ -611,12 +611,12 @@ function Get-AvailableProjects {
 function Show-ProjectSearchModal {
     param([string]$currentSourcePath = $script:sourceDir)
     
-    Write-Host "Show-ProjectSearchModal function called"
+    # Removed Write-Host to prevent popups in executable
     
     # Create the modal form
-    Write-Host "Creating modal form..."
+    # Removed Write-Host to prevent popups in executable
     $script:searchForm = New-Object System.Windows.Forms.Form
-    Write-Host "Form object created"
+    # Removed Write-Host to prevent popups in executable
     $script:searchForm.Text = "Search Projects"
     $script:searchForm.Size = New-Object System.Drawing.Size(700, 500)
     $script:searchForm.StartPosition = "CenterParent"
@@ -624,7 +624,7 @@ function Show-ProjectSearchModal {
     $script:searchForm.MaximizeBox = $false
     $script:searchForm.MinimizeBox = $false
     $script:searchForm.Font = New-Object System.Drawing.Font("Segoe UI", 10)
-    Write-Host "Form properties set"
+    # Removed Write-Host to prevent popups in executable
     
     # Search box (now at top)
     $searchLabel = New-Object System.Windows.Forms.Label
@@ -770,9 +770,9 @@ function Show-ProjectSearchModal {
         $script:searchForm.Refresh()
         
         try {
-            Write-Host "Getting available projects from: $($script:rootTextBox.Text)"
+            # Removed Write-Host to prevent popups in executable
             $projects = Get-AvailableProjects -projectsRootPath $script:rootTextBox.Text
-            Write-Host "Found $($projects.Count) projects"
+            # Removed Write-Host to prevent popups in executable
             
             $script:resultsListView.Items.Clear()
             
@@ -783,7 +783,7 @@ function Show-ProjectSearchModal {
             }
             
             # Show all projects for complete searchability
-            Write-Host "Displaying all $($projects.Count) projects"
+            # Removed Write-Host to prevent popups in executable
             
             foreach ($project in $projects) {
                 $item = New-Object System.Windows.Forms.ListViewItem($project.Name)
@@ -794,7 +794,7 @@ function Show-ProjectSearchModal {
             $script:statusLabel.Text = "$($projects.Count) projects loaded"
             $script:statusLabel.ForeColor = [System.Drawing.Color]::Green
         } catch {
-            Write-Host "Error in Refresh-ProjectList: $($_.Exception.Message)"
+            # Removed Write-Host to prevent popups in executable
             $script:statusLabel.Text = "Error loading projects: $($_.Exception.Message)"
             $script:statusLabel.ForeColor = [System.Drawing.Color]::Red
         }
@@ -826,16 +826,16 @@ function Show-ProjectSearchModal {
     $script:searchTimer.Add_Tick({
         $script:searchTimer.Stop()
         $searchText = $script:searchTextBox.Text.ToLower()
-        Write-Host "Search timer triggered with text: '$searchText'"
+        # Removed Write-Host to prevent popups in executable
         
         if ($searchText.Length -eq 0) {
-            Write-Host "Empty search, refreshing list..."
+            # Removed Write-Host to prevent popups in executable
             # Show all items by refreshing the list
             Refresh-ProjectList
             return
         }
         
-        Write-Host "Filtering $($script:resultsListView.Items.Count) items..."
+        # Removed Write-Host to prevent popups in executable
         # Filter items by removing non-matching ones
         $itemsToRemove = @()
         $matchCount = 0
@@ -852,13 +852,13 @@ function Show-ProjectSearchModal {
             
             if ($isMatch) {
                 $matchCount++
-                Write-Host "Match found: $($item.Text)"
+                # Removed Write-Host to prevent popups in executable
             } else {
                 $itemsToRemove += $item
             }
         }
         
-        Write-Host "Found $matchCount matches, removing $($itemsToRemove.Count) non-matches"
+        # Removed Write-Host to prevent popups in executable
         
         # Remove non-matching items
         foreach ($item in $itemsToRemove) {
@@ -870,7 +870,7 @@ function Show-ProjectSearchModal {
             $script:statusLabel.Text = "$visibleCount projects match search"
             $script:statusLabel.ForeColor = [System.Drawing.Color]::Blue
         }
-        Write-Host "Search complete: $visibleCount items remaining"
+        # Removed Write-Host to prevent popups in executable
     })
     
     $searchTextBox.Add_TextChanged({
@@ -891,14 +891,14 @@ function Show-ProjectSearchModal {
     })
     
     # Initial load
-    Write-Host "Calling Refresh-ProjectList..."
+    # Removed Write-Host to prevent popups in executable
     Refresh-ProjectList
-    Write-Host "Refresh-ProjectList completed"
+    # Removed Write-Host to prevent popups in executable
     
     # Show the modal
-    Write-Host "About to show modal with ShowDialog()..."
+    # Removed Write-Host to prevent popups in executable
     $result = $script:searchForm.ShowDialog()
-    Write-Host "ShowDialog completed with result: $result"
+    # Removed Write-Host to prevent popups in executable
     return $result
 }
 
@@ -2752,7 +2752,7 @@ function Get-TerrascanTscanSubfolders {
     try {
         $tscanPath = Join-Path $sourcePath "Tscan"
         if (-not (Test-Path $tscanPath -PathType Container)) {
-            Write-Host "Tscan path not found: $tscanPath"
+            # Removed Write-Host to prevent popups in executable
             return @()
         }
         
@@ -2771,7 +2771,7 @@ function Get-TerrascanTscanSubfolders {
         
         return $subfolders
     } catch {
-        Write-Host "Error getting Terrascan Tscan subfolders: $($_.Exception.Message)"
+        # Removed Write-Host to prevent popups in executable
         return @()
     }
 }
@@ -4452,13 +4452,13 @@ function Create-GUI {
     $script:searchProjectsButton.Location = New-Object System.Drawing.Point(440, 60)
     $script:searchProjectsButton.Size = New-Object System.Drawing.Size(120, 35)
     $script:searchProjectsButton.Add_Click({ 
-        Write-Host "Search Projects button clicked!"
+        # Removed Write-Host to prevent popups in executable
         try {
-            Write-Host "Calling Show-ProjectSearchModal..."
+            # Removed Write-Host to prevent popups in executable
             Show-ProjectSearchModal
-            Write-Host "Show-ProjectSearchModal completed"
+            # Removed Write-Host to prevent popups in executable
         } catch {
-            Write-Host "Error opening project search: $($_.Exception.Message)"
+            # Removed Write-Host to prevent popups in executable
             [System.Windows.Forms.MessageBox]::Show("Error opening project search: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         }
     })
@@ -4713,8 +4713,8 @@ function Create-GUI {
 
 # Main execution
 try {
-    Write-Host "=== CopyAmigo $scriptVersion ==="
-    Write-Host "Starting CopyAmigo GUI..."
+    # Removed Write-Host to prevent popups in executable
+    # Removed Write-Host to prevent popups in executable
     
     $script:form = Create-GUI
     
@@ -4739,9 +4739,9 @@ try {
     [System.Windows.Forms.Application]::Run($script:form)
     
 } catch {
-    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    # Removed Write-Host to prevent popups in executable
+    # Removed Write-Host to prevent popups in executable
+    [System.Windows.Forms.MessageBox]::Show("Error: $($_.Exception.Message)", "CopyAmigo Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
 } finally {
     Stop-AllProcesses
 } 
