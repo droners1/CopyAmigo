@@ -910,6 +910,21 @@ function Enable-CopyModeSelection {
         $script:copyModeInstructionLabel.Text = "SUCCESS: Copy modes are now available - select your preferred option below"
         $script:copyModeInstructionLabel.ForeColor = [System.Drawing.Color]::DarkGreen
     }
+    
+    # Refresh Terrascan Tscan subfolder list if Terrascan mode is currently selected
+    if ($script:terrascanRadio -and $script:terrascanRadio.Checked) {
+        $script:terrascanTscanCheckList.Items.Clear()
+        $terrascanSubfolders = Get-TerrascanTscanSubfolders
+        if ($terrascanSubfolders -and $terrascanSubfolders.Count -gt 0) {
+            foreach ($subfolder in $terrascanSubfolders) {
+                $script:terrascanTscanCheckList.Items.Add($subfolder) | Out-Null
+            }
+            $script:terrascanTscanCheckList.Enabled = $true
+        } else {
+            $script:terrascanTscanCheckList.Items.Add("No Tscan subfolders found") | Out-Null
+            $script:terrascanTscanCheckList.Enabled = $false
+        }
+    }
 }
 
 function Get-DriveType {
@@ -2692,6 +2707,36 @@ function Get-TscanMainFolders {
     return $validMainFolders | Sort-Object
 }
 
+function Get-TerrascanTscanSubfolders {
+    param([string]$sourcePath = $script:sourceDir)
+    
+    try {
+        $tscanPath = Join-Path $sourcePath "Tscan"
+        if (-not (Test-Path $tscanPath -PathType Container)) {
+            Write-Host "Tscan path not found: $tscanPath"
+            return @()
+        }
+        
+        $subfolders = @()
+        $tscanItems = Get-ChildItem $tscanPath -Directory | Where-Object { 
+            $_.Name -notin @("DGN", "Settings") -and -not $_.Name.StartsWith("~") -and -not $_.Name.StartsWith(".")
+        }
+        
+        foreach ($item in $tscanItems) {
+            # Check if the folder contains any files or subdirectories
+            $hasContent = Get-ChildItem $item.FullName -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($hasContent) {
+                $subfolders += $item.Name
+            }
+        }
+        
+        return $subfolders
+    } catch {
+        Write-Host "Error getting Terrascan Tscan subfolders: $($_.Exception.Message)"
+        return @()
+    }
+}
+
 function Get-TscanSubfolders {
     param([string]$MainFolderName)
     
@@ -3620,6 +3665,51 @@ function Copy-TerrascanData {
     
     Write-Status "TERRASCAN: Completed $successCount folder operations"
     
+    # Process selected Tscan subfolders if any are checked
+    if ($script:terrascanTscanCheckList -and $script:terrascanTscanCheckList.CheckedItems.Count -gt 0) {
+        Write-Status "TERRASCAN: Processing selected Tscan subfolders..."
+        
+        foreach ($item in $script:terrascanTscanCheckList.CheckedItems) {
+            if ($script:cancelRequested) { 
+                Write-Status "TERRASCAN: Operation cancelled by user"
+                return $false 
+            }
+            
+            $subfolderName = $item.ToString()
+            $sourceSubfolderPath = Join-Path $sourceDir "Tscan\$subfolderName"
+            $destSubfolderPath = Join-Path $destRoot "Tscan\$subfolderName"
+            
+            if (Test-Path $sourceSubfolderPath -PathType Container) {
+                Write-Status "TERRASCAN: Copying selected Tscan subfolder '$subfolderName'..."
+                
+                # Use the existing Windows-style copy with progress
+                if ($script:useWindowsProgressDialog) {
+                    Initialize-WindowsProgressDialog -title "CopyAmigo - Terrascan Project Setup" -description "Copying Tscan subfolder: $subfolderName"
+                }
+                
+                $success = Start-WindowsStyleCopy -sourcePath $sourceSubfolderPath -destPath $destSubfolderPath -folderName "Tscan\$subfolderName" -operation "Copying Tscan subfolder: $subfolderName"
+                
+                if ($script:useWindowsProgressDialog) {
+                    Close-WindowsProgressDialog
+                }
+                
+                if ($success) {
+                    $successCount++
+                    Write-Status "TERRASCAN: Successfully copied Tscan subfolder '$subfolderName'"
+                } else {
+                    Write-Status "TERRASCAN: Failed to copy Tscan subfolder '$subfolderName'"
+                    $overallSuccess = $false
+                }
+            } else {
+                Write-Status "TERRASCAN: WARNING - Selected Tscan subfolder '$subfolderName' not found at source - skipping"
+            }
+        }
+        
+        Write-Status "TERRASCAN: Completed processing selected Tscan subfolders"
+    } else {
+        Write-Status "TERRASCAN: No Tscan subfolders selected for additional copying"
+    }
+    
     # Store validation warning for later use in completion popup
     if ($orthomosaicValidationWarning) {
         $script:terrascanValidationWarning = $orthomosaicValidationWarning
@@ -4003,6 +4093,20 @@ function OnSubfolderItemCheck {
     $timer.Start()
 }
 
+function OnTerrascanTscanItemCheck {
+    # Use timer to ensure checkbox state is updated after the CheckedListBox state settles
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 50
+    $timer.Add_Tick({
+        param($sender, $eventArgs)
+        # Use the sender (the Timer instance) rather than captured variable to avoid null reference
+        $sender.Stop()
+        $sender.Dispose()
+        Update-CopyButtonState
+    })
+    $timer.Start()
+}
+
 function OnCopyClick {
     $script:cancelRequested = $false
     $script:copyButton.Enabled = $false
@@ -4247,7 +4351,7 @@ function Create-GUI {
     # Create main form
     $script:form = New-Object System.Windows.Forms.Form
     $script:form.Text = "CopyAmigo $scriptVersion"
-    $script:form.Size = New-Object System.Drawing.Size(700, 895)
+    $script:form.Size = New-Object System.Drawing.Size(700, 1085)
     $script:form.StartPosition = "CenterScreen"
     $script:form.FormBorderStyle = "FixedDialog"
     $script:form.MaximizeBox = $false
@@ -4317,7 +4421,7 @@ function Create-GUI {
     $sourceGroupBox = New-Object System.Windows.Forms.GroupBox
     $sourceGroupBox.Text = "Choose Copy Mode"
     $sourceGroupBox.Location = New-Object System.Drawing.Point(20, 170)
-    $sourceGroupBox.Size = New-Object System.Drawing.Size(650, 465)
+    $sourceGroupBox.Size = New-Object System.Drawing.Size(650, 675)
     $script:form.Controls.Add($sourceGroupBox)
     
     # Instruction label for copy mode selection
@@ -4347,14 +4451,56 @@ function Create-GUI {
     $script:terrascanRadio.Location = New-Object System.Drawing.Point(20, 95)
     $script:terrascanRadio.Size = New-Object System.Drawing.Size(600, 25)
     $script:terrascanRadio.Enabled = $false  # Disabled until project is selected
-    $script:terrascanRadio.Add_CheckedChanged({ Update-CopyButtonState })
+    $script:terrascanRadio.Add_CheckedChanged({ 
+        $script:terrascanGroupBox.Enabled = $script:terrascanRadio.Checked
+        if ($script:terrascanRadio.Checked) {
+            # Populate the Terrascan Tscan subfolder checklist
+            $script:terrascanTscanCheckList.Items.Clear()
+            $terrascanSubfolders = Get-TerrascanTscanSubfolders
+            if ($terrascanSubfolders -and $terrascanSubfolders.Count -gt 0) {
+                foreach ($subfolder in $terrascanSubfolders) {
+                    $script:terrascanTscanCheckList.Items.Add($subfolder) | Out-Null
+                }
+                $script:terrascanTscanCheckList.Enabled = $true
+            } else {
+                $script:terrascanTscanCheckList.Items.Add("No Tscan subfolders found") | Out-Null
+                $script:terrascanTscanCheckList.Enabled = $false
+            }
+        }
+        Update-CopyButtonState 
+    })
     $sourceGroupBox.Controls.Add($script:terrascanRadio)
-    $toolTip.SetToolTip($script:terrascanRadio, "Complete setup for Terrascan workflows. Includes deliverables, orthomosaic imagery, planning data, and Tscan configurations.")
+    $toolTip.SetToolTip($script:terrascanRadio, "Complete setup for Terrascan workflows. Includes deliverables, orthomosaic imagery, planning data, Tscan/DGN, Tscan/Settings, plus selected additional Tscan subfolders.")
+    
+    # Terrascan options group (positioned between Terrascan and Orthomosaic radio buttons)
+    $script:terrascanGroupBox = New-Object System.Windows.Forms.GroupBox
+    $script:terrascanGroupBox.Text = "Terrascan Tscan Options"
+    $script:terrascanGroupBox.Location = New-Object System.Drawing.Point(50, 120)
+    $script:terrascanGroupBox.Size = New-Object System.Drawing.Size(580, 200)
+    $script:terrascanGroupBox.Enabled = $false
+    $sourceGroupBox.Controls.Add($script:terrascanGroupBox)
+    
+    # Terrascan Tscan subfolder label
+    $terrascanTscanLabel = New-Object System.Windows.Forms.Label
+    $terrascanTscanLabel.Text = "Select Extra Tscan Subfolders:"
+    $terrascanTscanLabel.Location = New-Object System.Drawing.Point(20, 25)
+    $terrascanTscanLabel.Size = New-Object System.Drawing.Size(200, 20)
+    $script:terrascanGroupBox.Controls.Add($terrascanTscanLabel)
+    
+    # Terrascan Tscan subfolder checklist
+    $script:terrascanTscanCheckList = New-Object System.Windows.Forms.CheckedListBox
+    $script:terrascanTscanCheckList.CheckOnClick = $true
+    $script:terrascanTscanCheckList.IntegralHeight = $false
+    $script:terrascanTscanCheckList.Location = New-Object System.Drawing.Point(20, 50)
+    $script:terrascanTscanCheckList.Size = New-Object System.Drawing.Size(540, 140)
+    $script:terrascanTscanCheckList.Enabled = $false
+    $script:terrascanTscanCheckList.Add_ItemCheck({ OnTerrascanTscanItemCheck })
+    $script:terrascanGroupBox.Controls.Add($script:terrascanTscanCheckList)
     
     # 3. Orthomosaic Processing radio button
     $script:orthomosaicRadio = New-Object System.Windows.Forms.RadioButton
     $script:orthomosaicRadio.Text = "Orthomosaic Processing - Minimal files needed for orthomosaic creation"
-    $script:orthomosaicRadio.Location = New-Object System.Drawing.Point(20, 130)
+    $script:orthomosaicRadio.Location = New-Object System.Drawing.Point(20, 330)
     $script:orthomosaicRadio.Size = New-Object System.Drawing.Size(600, 25)
     $script:orthomosaicRadio.Enabled = $false  # Disabled until project is selected
     $script:orthomosaicRadio.Add_CheckedChanged({ Update-CopyButtonState })
@@ -4364,7 +4510,7 @@ function Create-GUI {
     # 4. Tscan radio button
     $script:tscanRadio = New-Object System.Windows.Forms.RadioButton
     $script:tscanRadio.Text = "Tscan - Standard project folders plus selected Tscan data"
-    $script:tscanRadio.Location = New-Object System.Drawing.Point(20, 165)
+    $script:tscanRadio.Location = New-Object System.Drawing.Point(20, 365)
     $script:tscanRadio.Size = New-Object System.Drawing.Size(600, 25)
     $script:tscanRadio.Enabled = $false  # Disabled until project is selected
     $script:tscanRadio.Add_CheckedChanged({ 
@@ -4392,7 +4538,7 @@ function Create-GUI {
     # Tscan options group
     $script:tscanGroupBox = New-Object System.Windows.Forms.GroupBox
     $script:tscanGroupBox.Text = "Tscan Options"
-    $script:tscanGroupBox.Location = New-Object System.Drawing.Point(50, 205)
+    $script:tscanGroupBox.Location = New-Object System.Drawing.Point(50, 395)
     $script:tscanGroupBox.Size = New-Object System.Drawing.Size(580, 270)
     $script:tscanGroupBox.Enabled = $false
     $sourceGroupBox.Controls.Add($script:tscanGroupBox)
@@ -4439,10 +4585,12 @@ function Create-GUI {
     $script:selectionCountLabel.ForeColor = [System.Drawing.Color]::Blue
     $script:tscanGroupBox.Controls.Add($script:selectionCountLabel)
     
+
+    
     # Copy button
     $script:copyButton = New-Object System.Windows.Forms.Button
     $script:copyButton.Text = "Start Copy"
-    $script:copyButton.Location = New-Object System.Drawing.Point(20, 655)
+    $script:copyButton.Location = New-Object System.Drawing.Point(20, 865)
     $script:copyButton.Size = New-Object System.Drawing.Size(170, 40)
     $script:copyButton.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 215)
     $script:copyButton.ForeColor = [System.Drawing.Color]::White
@@ -4454,7 +4602,7 @@ function Create-GUI {
     # Cancel button
     $script:cancelButton = New-Object System.Windows.Forms.Button
     $script:cancelButton.Text = "Cancel"
-    $script:cancelButton.Location = New-Object System.Drawing.Point(180, 655)
+    $script:cancelButton.Location = New-Object System.Drawing.Point(180, 865)
     $script:cancelButton.Size = New-Object System.Drawing.Size(110, 40)
     $script:cancelButton.BackColor = [System.Drawing.Color]::FromArgb(220, 53, 69)
     $script:cancelButton.ForeColor = [System.Drawing.Color]::White
@@ -4465,7 +4613,7 @@ function Create-GUI {
     
     # Progress bar
     $script:progressBar = New-Object System.Windows.Forms.ProgressBar
-    $script:progressBar.Location = New-Object System.Drawing.Point(290, 655)
+    $script:progressBar.Location = New-Object System.Drawing.Point(290, 865)
     $script:progressBar.Size = New-Object System.Drawing.Size(360, 40)
     $script:form.Controls.Add($script:progressBar)
     $toolTip.SetToolTip($script:progressBar, "Overall progress of the copy operation.")
@@ -4477,7 +4625,7 @@ function Create-GUI {
     $script:statusTextBox.Multiline = $true
     $script:statusTextBox.ScrollBars = "Vertical"
     $script:statusTextBox.ReadOnly = $true
-    $script:statusTextBox.Location = New-Object System.Drawing.Point(20, 705)
+    $script:statusTextBox.Location = New-Object System.Drawing.Point(20, 915)
     $script:statusTextBox.Size = New-Object System.Drawing.Size(650, 150)
     $script:statusTextBox.BackColor = [System.Drawing.Color]::Black
     $script:statusTextBox.ForeColor = [System.Drawing.Color]::LimeGreen
