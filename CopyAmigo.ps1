@@ -19,14 +19,13 @@ $script:selectedSubfolders = @()
 $script:cancelRequested = $false
 $script:activeProcesses = @()
 # Determine default Projects root (prefer H:, else C:\Projects, else prompt once)
-# Check if H: drive is actually accessible for operations, not just if path exists
+# Check if H: drive is actually accessible for READ operations (which is what we need for copying)
 $hDriveAccessible = $false
 if (Test-Path 'H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS') {
     try {
-        # Test if we can actually write to the H: drive by attempting to create a test file
-        $testFile = 'H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS\CopyAmigo_Test_Access.tmp'
-        $null = New-Item -ItemType File -Path $testFile -Force -ErrorAction Stop
-        Remove-Item $testFile -Force -ErrorAction SilentlyContinue
+        # Test if we can actually READ from the H: drive by listing contents
+        $testFolder = 'H:\Survey\LIDAR PHOTOGRAMMETRY PROJECTS'
+        $null = Get-ChildItem $testFolder -ErrorAction Stop | Select-Object -First 1
         $hDriveAccessible = $true
     } catch {
         $hDriveAccessible = $false
@@ -2758,7 +2757,7 @@ function Get-TerrascanTscanSubfolders {
         
         $subfolders = @()
         $tscanItems = Get-ChildItem $tscanPath -Directory | Where-Object { 
-            $_.Name -notin @("DGN", "Settings") -and -not $_.Name.StartsWith("~") -and -not $_.Name.StartsWith(".")
+            $_.Name -notin @("DGN", "Settings", "Macro") -and -not $_.Name.StartsWith("~") -and -not $_.Name.StartsWith(".")
         }
         
         foreach ($item in $tscanItems) {
@@ -2789,7 +2788,8 @@ function Get-TscanSubfolders {
     $subfolders = Get-ChildItem $mainFolderPath -Directory -ErrorAction SilentlyContinue
     
     foreach ($subfolder in $subfolders) {
-        if ($subfolder.Name -notmatch "^(Settings|DGN)$") {
+        # Exclude system folders (Settings, DGN) and Macro folder (always copied automatically)
+        if ($subfolder.Name -notmatch "^(Settings|DGN|Macro)$") {
             $validSubfolders += $subfolder.Name
         }
     }
@@ -2812,7 +2812,7 @@ function Copy-FolderSkeleton {
 
 function Copy-TscanData {
     Write-Status "=== TSCAN DATA COPY ==="
-    Write-Status "TSCAN: Copies Control, Planning (Boundary & Work Orders), Tscan/DGN, Tscan/Settings, plus user-selected Tscan subfolders and Macro/trj if they exist"
+    Write-Status "TSCAN: Copies Control, Planning (Boundary & Work Orders), QC, Tscan/DGN, Tscan/Settings, plus user-selected Tscan subfolders and always copies Macro subfolder"
 
     # System Capabilities Analysis for Tscan
     Write-Status "TSCAN: Analyzing system capabilities for optimal performance..."
@@ -2830,6 +2830,7 @@ function Copy-TscanData {
         "Control",
         "Planning\Boundary",
         "Planning\Work Orders",
+        "QC",
         "Tscan\DGN",
         "Tscan\Settings"
     )
@@ -3010,7 +3011,35 @@ function Copy-TscanData {
     }
 
     Write-Status "TSCAN: Completed $userSuccessCount of $($script:selectedSubfolders.Count) selected folders"
-    Write-Status "TSCAN: Total operation: $standardSuccessCount standard + $userSuccessCount selected folders"
+
+    # Step 3: Always copy Macro subfolder from main selected folder if it exists
+    Write-Status "TSCAN: Checking for Macro subfolder in main folder $mainFolder..."
+    $macroSrc = Join-Path $mainFolderSrc "Macro"
+    $macroDst = Join-Path $destMainPath "Macro"
+    
+    if (Test-Path $macroSrc -PathType Container) {
+        Write-Status "TSCAN: Found Macro subfolder in $mainFolder - copying automatically..."
+        if ($script:useWindowsProgressDialog) {
+            Initialize-WindowsProgressDialog -title "CopyAmigo - Tscan ($mainFolder)" -description "Copying: Macro subfolder"
+        }
+        
+        $macroOk = Start-WindowsStyleCopy -sourcePath $macroSrc -destPath $macroDst -folderName "$mainFolder\Macro" -operation "Copying Macro subfolder"
+        
+        if ($script:useWindowsProgressDialog) {
+            Close-WindowsProgressDialog
+        }
+        
+        if ($macroOk) {
+            Write-Status "TSCAN: Successfully copied Macro subfolder from $mainFolder"
+        } else {
+            Write-Status "TSCAN: Failed to copy Macro subfolder from $mainFolder"
+            $overallSuccess = $false
+        }
+    } else {
+        Write-Status "TSCAN: No Macro subfolder found in $mainFolder"
+    }
+
+    Write-Status "TSCAN: Total operation: $standardSuccessCount standard + $userSuccessCount selected folders + Macro subfolder"
     
     return $overallSuccess -and ($standardSuccessCount -gt 0 -or $userSuccessCount -gt 0)
 }
