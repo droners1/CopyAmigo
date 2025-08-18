@@ -14,6 +14,7 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 - ✅ **Fast & Safe**: Uses Windows' best copy tools with progress tracking
 - ✅ **Professional**: Designed specifically for survey and LIDAR projects
 - ✅ **Easy to Use**: Simple interface that anyone can understand
+- ✅ **TScan Optimized**: Special features for TScan data workflows
 
 ---
 
@@ -22,6 +23,7 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 ### **Step 1: Run the Program**
 - Double-click `CopyAmigo.exe` (that's it!)
 - No installation needed - it just works!
+- **Note**: This is a standalone executable built with PS2EXE
 
 ### **Step 2: Pick Your Project**
 - The program automatically finds your current project folder
@@ -39,9 +41,9 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 
 ---
 
-## 📁 The 4 Copy Modes - Explained Simply
+## 📁 The 4 Copy Modes - Explained with Visuals
 
-### **Mode 1: Raw Data Processing**
+### **Mode 1: Raw Data Processing** 📊
 *"I need everything to process raw survey data"*
 
 **What This Mode Does:**
@@ -50,16 +52,23 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 
 **What Gets Copied:**
 ```
-✅ Control/           ← All your control points and survey data
-✅ Planning/Boundary/ ← Your project boundaries and planning files
-✅ Planning/Work Orders/ ← Work orders and project specifications
-✅ Raw Data/         ← All your raw survey data files
+📁 Project Root/
+├── 📁 Control/                    ← All your control points and survey data
+├── 📁 Planning/
+│   ├── 📁 Boundary/              ← Your project boundaries and planning files
+│   └── 📁 Work Orders/           ← Work orders and project specifications
+├── 📁 Raw Data/                  ← All your raw survey data files
+│   ├── 📁 cam0/                  ← Camera data from various timestamp folders
+│   ├── 📁 GeoRef/                ← Coordinate reference files (.dat files)
+│   └── 📁 [Other Data Folders]/  ← Any additional data structures
+└── 📁 [Other Project Folders]/   ← Any other folders in your project
 ```
 
 **When to Use This Mode:**
 - Starting a new survey project
 - Need to process raw data from scratch
 - Want to make sure you have everything before starting work
+- Creating a complete backup of your project
 
 **What Happens:**
 - Creates a complete copy of your essential project structure
@@ -68,7 +77,7 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 
 ---
 
-### **Mode 2: Terrascan Project Setup**
+### **Mode 2: Terrascan Project Setup** 🎯
 *"I need everything for a complete Terrascan workflow"*
 
 **What This Mode Does:**
@@ -78,13 +87,18 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 
 **What Gets Copied:**
 ```
-✅ Control/           ← All control points and survey data
-✅ Deliverable/       ← All deliverable files
-✅ Orthomosaic/Finished Ortho Photos/ ← All finished orthophotos
-✅ Planning/Boundary/ ← Project boundaries
-✅ Planning/Work Orders/ ← Work orders
-✅ Tscan/DGN/         ← All Tscan design files
-✅ Tscan/Settings/    ← All Tscan settings and configurations
+📁 Project Root/
+├── 📁 Control/                    ← All control points and survey data
+├── 📁 Deliverable/                ← All deliverable files
+├── 📁 Orthomosaic/
+│   └── 📁 Finished Ortho Photos/ ← All finished orthophotos
+├── 📁 Planning/
+│   ├── 📁 Boundary/              ← Project boundaries
+│   └── 📁 Work Orders/           ← Work orders
+├── 📁 Tscan/
+│   ├── 📁 DGN/                   ← All Tscan design files
+│   └── 📁 Settings/              ← All Tscan settings and configurations
+└── 📁 [Other Project Folders]/   ← Any additional project folders
 ```
 
 **Special Features:**
@@ -96,10 +110,11 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 - Setting up a complete Terrascan project
 - Handing off projects to other team members
 - Need the full project structure for Terrascan workflows
+- Creating comprehensive project archives
 
 ---
 
-### **Mode 3: Orthomosaic Processing**
+### **Mode 3: Orthomosaic Processing** 📸
 *"I only need the minimum files to create orthomosaics"*
 
 **What This Mode Does:**
@@ -109,12 +124,14 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 
 **What Gets Copied:**
 ```
-✅ Control/           ← All control points (needed for accuracy)
-✅ Orthomosaic/Finished Ortho Photos/ ← All finished photos
-✅ Raw Data/          ← Only the camera data you need
-   ├── ✅ cam0/      ← Camera data from timestamp folders
-   ├── ✅ cam0/      ← Camera data from RECON folders  
-   └── ✅ GeoRef/    ← Only .dat files (coordinate reference)
+📁 Project Root/
+├── 📁 Control/                    ← All control points (needed for accuracy)
+├── 📁 Orthomosaic/
+│   └── 📁 Finished Ortho Photos/ ← All finished photos
+└── 📁 Raw Data/                  ← Only the camera data you need
+    ├── 📁 cam0/                  ← Camera data from timestamp folders
+    ├── 📁 cam0/                  ← Camera data from RECON folders  
+    └── 📁 GeoRef/                ← Only .dat files (coordinate reference)
 ```
 
 **Smart Features:**
@@ -126,50 +143,65 @@ CopyAmigo is a smart, user-friendly tool that helps you copy survey project data
 - Creating orthomosaics from survey data
 - Need to save disk space
 - Only want the essential files for photo processing
+- Sharing orthomosaic data with clients
 
 ---
 
-### **Mode 4: Tscan (Selective Data)**
+### **Mode 4: Tscan (Selective Data)** 🎛️
 *"I need standard project files plus specific Tscan data"*
 
 **What This Mode Does:**
 - Copies all the standard project folders
+- **ALWAYS copies the "QC" folder and "macro" subfolder** (automatically)
 - Lets you pick and choose which Tscan data to include
 - Perfect for when you need flexibility in what gets copied
 
-**What Gets Copied (Standard):**
+**What Gets Copied (Standard - Always):**
 ```
-✅ Control/           ← All control points
-✅ Orthomosaic/Finished Ortho Photos/ ← All finished photos
-✅ Planning/Boundary/ ← Project boundaries
-✅ Planning/Work Orders/ ← Work orders
-✅ Tscan/DGN/         ← All Tscan design files
-✅ Tscan/Settings/    ← All Tscan settings
+📁 Project Root/
+├── 📁 Control/                    ← All control points
+├── 📁 Planning/
+│   ├── 📁 Boundary/              ← Project boundaries
+│   └── 📁 Work Orders/           ← Work orders
+├── 📁 QC/                        ← ALWAYS copied (new in v10.0!)
+├── 📁 Tscan/
+│   ├── 📁 DGN/                   ← All Tscan design files
+│   ├── 📁 Settings/              ← All Tscan settings
+│   └── 📁 [Main Folder]/         ← Main Tscan data folder
+│       └── 📁 macro/             ← ALWAYS copied automatically (new in v10.0!)
+└── 📁 [Other Project Folders]/   ← Any additional project folders
 ```
 
 **What You Choose (Tscan Data):**
 ```
-🎯 Tscan/Helicopter/  ← You pick which subfolders
-🎯 Tscan/Mobile/      ← You pick which subfolders  
-🎯 Tscan/Terrestrial/ ← You pick which subfolders
-🎯 Tscan/UAV/         ← You pick which subfolders
+🎯 Tscan/[Main Folder]/           ← You pick which subfolders
+    ├── 📁 [Subfolder 1]/         ← You select from available options
+    ├── 📁 [Subfolder 2]/         ← You select from available options
+    ├── 📁 [Subfolder 3]/         ← You select from available options
+    └── 📁 [Subfolder N]/         ← You select from available options
 ```
 
 **How the Selection Works:**
-1. **Scan**: Program looks through your Tscan folders
+1. **Scan**: Program looks through your Tscan main folder
 2. **Validate**: Only shows folders that contain valid data
 3. **Choose**: You pick which ones you want
 4. **Copy**: Only copies the folders you selected
 
 **Smart Validation:**
-- Only shows folders that contain "Laser02 - Ground by line" data
-- Ensures the data folder has at least 2 files
+- Only shows folders that contain valid survey data
+- Ensures the data folder has meaningful content
 - Hides invalid or empty folders automatically
+
+**New Features in v10.0:**
+- **QC Folder**: Always copied automatically (no selection needed)
+- **Macro Subfolder**: Always copied automatically from the main Tscan folder
+- **Transparent Operation**: These folders are copied without user intervention
 
 **When to Use This Mode:**
 - Need flexibility in what Tscan data to copy
 - Want to save space by not copying everything
 - Need to share specific parts of a project
+- Working with Tscan workflows that require QC and macro data
 
 ---
 
@@ -381,7 +413,7 @@ Each copy mode is designed for specific workflows:
 - **Raw Data**: Complete datasets for initial processing
 - **Terrascan**: Full project setup for Terrascan workflows
 - **Orthomosaic**: Minimal files for photo processing
-- **Tscan**: Flexible selection for specific data needs
+- **Tscan**: Flexible selection for specific data needs with automatic QC and macro copying
 
 ### **Smart Progress Tracking**
 The progress system:
@@ -396,6 +428,41 @@ CopyAmigo automatically:
 - Chooses optimal copy parameters
 - Adjusts thread count based on drive types
 - Optimizes for network vs. local copying
+
+---
+
+## 🛠️ For Developers: Building CopyAmigo
+
+### **Prerequisites**
+- Windows 10/11 with PowerShell 5.1+
+- PS2EXE module installed in user profile
+
+### **Install PS2EXE Module**
+```powershell
+# Install PS2EXE to user profile
+Install-Module -Name PS2EXE -Scope CurrentUser -Force
+```
+
+### **Build the Executable**
+```powershell
+# Build CopyAmigo.exe from CopyAmigo.ps1
+Invoke-ps2exe -inputFile CopyAmigo.ps1 -outputFile CopyAmigo.exe -noConsole -noError -title "CopyAmigo" -version "10.0" -company "CopyAmigo" -product "CopyAmigo" -copyright "CopyAmigo 2025"
+```
+
+### **Build Parameters Explained**
+- `-noConsole`: Creates Windows GUI application (no console window)
+- `-noError`: Suppresses error dialogs for cleaner UX
+- `-title`: Sets application title
+- `-version`: Sets version number
+- `-company`: Sets company metadata
+- `-product`: Sets product name
+- `-copyright`: Sets copyright information
+
+### **Module Location**
+PS2EXE should be installed at:
+```
+C:\Users\[Username]\Documents\WindowsPowerShell\Modules\ps2exe\
+```
 
 ---
 
@@ -428,6 +495,7 @@ CopyAmigo automatically:
 - **Smart Automation**: Automatically handles complex folder structures
 - **Progress Tracking**: Professional-level progress monitoring
 - **Error Handling**: Robust error handling and recovery
+- **TScan Optimized**: Special features for TScan workflows
 
 ### **User-Friendly Design**
 - **Simple Interface**: Easy to understand and use
@@ -441,8 +509,34 @@ CopyAmigo automatically:
 - **Network Support**: Works with local and network locations
 - **Progress Accuracy**: Real-time progress with accurate estimates
 
+### **New in Version 10.0**
+- **Automatic QC Folder Copying**: QC folder is always copied in TScan mode
+- **Automatic Macro Subfolder Copying**: Macro subfolder is always copied automatically
+- **Enhanced TScan Mode**: Better folder selection and validation
+- **Improved Error Handling**: More robust error handling and recovery
+- **PS2EXE Build System**: Professional executable building with PS2EXE
+
+---
+
+## 📝 Version History
+
+### **Version 10.0 (Current)**
+- ✅ **New Feature**: Automatic QC folder copying in TScan mode
+- ✅ **New Feature**: Automatic macro subfolder copying in TScan mode
+- ✅ **Improvement**: Enhanced TScan folder selection and validation
+- ✅ **Improvement**: Better error handling and recovery
+- ✅ **Technical**: Switched to PS2EXE build system for better reliability
+- ✅ **Technical**: Improved Windows Forms compatibility
+
+### **Previous Versions**
+- **Version 9.x**: Initial release with basic copy modes
+- **Version 8.x**: Enhanced progress tracking and error handling
+- **Version 7.x**: Added TScan mode and folder selection
+
 ---
 
 *CopyAmigo v10.0 - Making Survey Data Management Simple and Professional*
 
 **Remember**: CopyAmigo is designed to be simple enough for anyone to use, while being powerful enough for professional survey work. If you're ever unsure about something, the program will guide you through it with clear messages and helpful suggestions.
+
+**For Developers**: The executable is built using PS2EXE for maximum compatibility and reliability. See the "For Developers" section above for build instructions.
