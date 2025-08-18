@@ -4417,7 +4417,7 @@ function Create-GUI {
     # Create main form
     $script:form = New-Object System.Windows.Forms.Form
     $script:form.Text = "CopyAmigo $scriptVersion"
-    $script:form.Size = New-Object System.Drawing.Size(700, 1085)
+    $script:form.Size = New-Object System.Drawing.Size(700, 900)
     $script:form.StartPosition = "CenterScreen"
     $script:form.FormBorderStyle = "FixedDialog"
     $script:form.MaximizeBox = $false
@@ -4433,24 +4433,24 @@ function Create-GUI {
     # Header label
     $headerLabel = New-Object System.Windows.Forms.Label
     $headerLabel.Text = "CopyAmigo - Project Data Copy Tool"
-    $headerLabel.Location = New-Object System.Drawing.Point(20, 20)
-    $headerLabel.Size = New-Object System.Drawing.Size(400, 30)
+    $headerLabel.Location = New-Object System.Drawing.Point(20, 15)
+    $headerLabel.Size = New-Object System.Drawing.Size(400, 25)
     $headerLabel.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
     $script:form.Controls.Add($headerLabel)
     
     # Project info
     $script:infoLabel = New-Object System.Windows.Forms.Label
     $script:infoLabel.Text = "Project: $projectFolderName`nSource: $sourceDir"
-    $script:infoLabel.Location = New-Object System.Drawing.Point(20, 60)
-    $script:infoLabel.Size = New-Object System.Drawing.Size(400, 40)
+    $script:infoLabel.Location = New-Object System.Drawing.Point(20, 50)
+    $script:infoLabel.Size = New-Object System.Drawing.Size(400, 35)
     $script:infoLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8)
     $script:form.Controls.Add($script:infoLabel)
     
     # Search Projects button
     $script:searchProjectsButton = New-Object System.Windows.Forms.Button
     $script:searchProjectsButton.Text = "Search Projects..."
-    $script:searchProjectsButton.Location = New-Object System.Drawing.Point(440, 60)
-    $script:searchProjectsButton.Size = New-Object System.Drawing.Size(120, 35)
+    $script:searchProjectsButton.Location = New-Object System.Drawing.Point(440, 50)
+    $script:searchProjectsButton.Size = New-Object System.Drawing.Size(120, 30)
     $script:searchProjectsButton.Add_Click({ 
         # Removed Write-Host to prevent popups in executable
         try {
@@ -4468,16 +4468,16 @@ function Create-GUI {
     # Set Destination button
     $script:browseButton = New-Object System.Windows.Forms.Button
     $script:browseButton.Text = "Set Destination"
-    $script:browseButton.Location = New-Object System.Drawing.Point(20, 120)
-    $script:browseButton.Size = New-Object System.Drawing.Size(200, 40)
+    $script:browseButton.Location = New-Object System.Drawing.Point(20, 95)
+    $script:browseButton.Size = New-Object System.Drawing.Size(200, 35)
     $script:browseButton.Add_Click({ Browse-DestinationFolder })
     $script:form.Controls.Add($script:browseButton)
     $toolTip.SetToolTip($script:browseButton, "Select where to copy your project data. A project folder will be created automatically.")
     
     # Destination text box
     $script:destinationTextBox = New-Object System.Windows.Forms.TextBox
-    $script:destinationTextBox.Location = New-Object System.Drawing.Point(240, 125)
-    $script:destinationTextBox.Size = New-Object System.Drawing.Size(400, 28)
+    $script:destinationTextBox.Location = New-Object System.Drawing.Point(240, 100)
+    $script:destinationTextBox.Size = New-Object System.Drawing.Size(400, 25)
     $script:destinationTextBox.ReadOnly = $true
     $script:destinationTextBox.Text = "C:\Projects"
     $script:form.Controls.Add($script:destinationTextBox)
@@ -4486,15 +4486,15 @@ function Create-GUI {
     # Data source selection
     $sourceGroupBox = New-Object System.Windows.Forms.GroupBox
     $sourceGroupBox.Text = "Choose Copy Mode"
-    $sourceGroupBox.Location = New-Object System.Drawing.Point(20, 170)
-    $sourceGroupBox.Size = New-Object System.Drawing.Size(650, 675)
+    $sourceGroupBox.Location = New-Object System.Drawing.Point(20, 145)
+    $sourceGroupBox.Size = New-Object System.Drawing.Size(650, 520)
     $script:form.Controls.Add($sourceGroupBox)
     
     # Instruction label for copy mode selection
     $script:copyModeInstructionLabel = New-Object System.Windows.Forms.Label
     $script:copyModeInstructionLabel.Text = "IMPORTANT: Please select a project first to enable copy mode selection"
-    $script:copyModeInstructionLabel.Location = New-Object System.Drawing.Point(20, 25)
-    $script:copyModeInstructionLabel.Size = New-Object System.Drawing.Size(600, 25)
+    $script:copyModeInstructionLabel.Location = New-Object System.Drawing.Point(20, 20)
+    $script:copyModeInstructionLabel.Size = New-Object System.Drawing.Size(600, 20)
     $script:copyModeInstructionLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
     $script:copyModeInstructionLabel.ForeColor = [System.Drawing.Color]::DarkOrange
     $script:copyModeInstructionLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -4503,8 +4503,8 @@ function Create-GUI {
     # 1. Initial Cloud Processing radio button
     $script:initialCloudRadio = New-Object System.Windows.Forms.RadioButton
     $script:initialCloudRadio.Text = "Raw Data Processing - Everything needed to process a raw dataset"
-    $script:initialCloudRadio.Location = New-Object System.Drawing.Point(20, 60)
-    $script:initialCloudRadio.Size = New-Object System.Drawing.Size(600, 25)
+    $script:initialCloudRadio.Location = New-Object System.Drawing.Point(20, 50)
+    $script:initialCloudRadio.Size = New-Object System.Drawing.Size(600, 20)
     $script:initialCloudRadio.Checked = $true
     $script:initialCloudRadio.Enabled = $false  # Disabled until project is selected
     $script:initialCloudRadio.Add_CheckedChanged({ Update-CopyButtonState })
@@ -4514,8 +4514,8 @@ function Create-GUI {
     # 2. Terrascan Project Setup radio button
     $script:terrascanRadio = New-Object System.Windows.Forms.RadioButton
     $script:terrascanRadio.Text = "Terrascan Project Setup - Complete project setup for Terrascan workflows"
-    $script:terrascanRadio.Location = New-Object System.Drawing.Point(20, 95)
-    $script:terrascanRadio.Size = New-Object System.Drawing.Size(600, 25)
+    $script:terrascanRadio.Location = New-Object System.Drawing.Point(20, 80)
+    $script:terrascanRadio.Size = New-Object System.Drawing.Size(600, 20)
     $script:terrascanRadio.Enabled = $false  # Disabled until project is selected
     $script:terrascanRadio.Add_CheckedChanged({ 
         $script:terrascanGroupBox.Enabled = $script:terrascanRadio.Checked
@@ -4541,8 +4541,8 @@ function Create-GUI {
     # Terrascan options group (positioned between Terrascan and Orthomosaic radio buttons)
     $script:terrascanGroupBox = New-Object System.Windows.Forms.GroupBox
     $script:terrascanGroupBox.Text = "Terrascan Tscan Options"
-    $script:terrascanGroupBox.Location = New-Object System.Drawing.Point(50, 120)
-    $script:terrascanGroupBox.Size = New-Object System.Drawing.Size(580, 200)
+    $script:terrascanGroupBox.Location = New-Object System.Drawing.Point(50, 105)
+    $script:terrascanGroupBox.Size = New-Object System.Drawing.Size(580, 150)
     $script:terrascanGroupBox.Enabled = $false
     $sourceGroupBox.Controls.Add($script:terrascanGroupBox)
     
@@ -4558,7 +4558,7 @@ function Create-GUI {
     $script:terrascanTscanCheckList.CheckOnClick = $true
     $script:terrascanTscanCheckList.IntegralHeight = $false
     $script:terrascanTscanCheckList.Location = New-Object System.Drawing.Point(20, 50)
-    $script:terrascanTscanCheckList.Size = New-Object System.Drawing.Size(540, 140)
+    $script:terrascanTscanCheckList.Size = New-Object System.Drawing.Size(540, 90)
     $script:terrascanTscanCheckList.Enabled = $false
     $script:terrascanTscanCheckList.Add_ItemCheck({ OnTerrascanTscanItemCheck })
     $script:terrascanGroupBox.Controls.Add($script:terrascanTscanCheckList)
@@ -4566,8 +4566,8 @@ function Create-GUI {
     # 3. Orthomosaic Processing radio button
     $script:orthomosaicRadio = New-Object System.Windows.Forms.RadioButton
     $script:orthomosaicRadio.Text = "Orthomosaic Processing - Minimal files needed for orthomosaic creation"
-    $script:orthomosaicRadio.Location = New-Object System.Drawing.Point(20, 330)
-    $script:orthomosaicRadio.Size = New-Object System.Drawing.Size(600, 25)
+    $script:orthomosaicRadio.Location = New-Object System.Drawing.Point(20, 265)
+    $script:orthomosaicRadio.Size = New-Object System.Drawing.Size(600, 20)
     $script:orthomosaicRadio.Enabled = $false  # Disabled until project is selected
     $script:orthomosaicRadio.Add_CheckedChanged({ Update-CopyButtonState })
     $sourceGroupBox.Controls.Add($script:orthomosaicRadio)
@@ -4576,8 +4576,8 @@ function Create-GUI {
     # 4. Tscan radio button
     $script:tscanRadio = New-Object System.Windows.Forms.RadioButton
     $script:tscanRadio.Text = "Tscan - Standard project folders plus selected Tscan data"
-    $script:tscanRadio.Location = New-Object System.Drawing.Point(20, 365)
-    $script:tscanRadio.Size = New-Object System.Drawing.Size(600, 25)
+    $script:tscanRadio.Location = New-Object System.Drawing.Point(20, 295)
+    $script:tscanRadio.Size = New-Object System.Drawing.Size(600, 20)
     $script:tscanRadio.Enabled = $false  # Disabled until project is selected
     $script:tscanRadio.Add_CheckedChanged({ 
         $script:tscanGroupBox.Enabled = $script:tscanRadio.Checked
@@ -4604,8 +4604,8 @@ function Create-GUI {
     # Tscan options group
     $script:tscanGroupBox = New-Object System.Windows.Forms.GroupBox
     $script:tscanGroupBox.Text = "Tscan Options"
-    $script:tscanGroupBox.Location = New-Object System.Drawing.Point(50, 395)
-    $script:tscanGroupBox.Size = New-Object System.Drawing.Size(580, 270)
+    $script:tscanGroupBox.Location = New-Object System.Drawing.Point(50, 320)
+    $script:tscanGroupBox.Size = New-Object System.Drawing.Size(580, 200)
     $script:tscanGroupBox.Enabled = $false
     $sourceGroupBox.Controls.Add($script:tscanGroupBox)
     
@@ -4637,7 +4637,7 @@ function Create-GUI {
     $script:subfolderDropdown.CheckOnClick = $true
     $script:subfolderDropdown.IntegralHeight = $false  # Allow custom height, not limited to item count
     $script:subfolderDropdown.Location = New-Object System.Drawing.Point(20, 85)
-    $script:subfolderDropdown.Size = New-Object System.Drawing.Size(540, 200)  # Half the previous size
+    $script:subfolderDropdown.Size = New-Object System.Drawing.Size(540, 110)  # Reduced size for compact layout
     $script:subfolderDropdown.Enabled = $false
     $script:subfolderDropdown.Add_ItemCheck({ OnSubfolderItemCheck })
     $script:tscanGroupBox.Controls.Add($script:subfolderDropdown)
@@ -4645,7 +4645,7 @@ function Create-GUI {
     # Selection count label (moved up)
     $script:selectionCountLabel = New-Object System.Windows.Forms.Label
     $script:selectionCountLabel.Text = "Selected: 0"
-    $script:selectionCountLabel.Location = New-Object System.Drawing.Point(420, 290)
+    $script:selectionCountLabel.Location = New-Object System.Drawing.Point(420, 200)
     $script:selectionCountLabel.Size = New-Object System.Drawing.Size(140, 20)
     $script:selectionCountLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8)
     $script:selectionCountLabel.ForeColor = [System.Drawing.Color]::Blue
@@ -4656,8 +4656,8 @@ function Create-GUI {
     # Copy button
     $script:copyButton = New-Object System.Windows.Forms.Button
     $script:copyButton.Text = "Start Copy"
-    $script:copyButton.Location = New-Object System.Drawing.Point(20, 865)
-    $script:copyButton.Size = New-Object System.Drawing.Size(170, 40)
+    $script:copyButton.Location = New-Object System.Drawing.Point(20, 685)
+    $script:copyButton.Size = New-Object System.Drawing.Size(170, 35)
     $script:copyButton.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 215)
     $script:copyButton.ForeColor = [System.Drawing.Color]::White
     $script:copyButton.Enabled = $false
@@ -4668,8 +4668,8 @@ function Create-GUI {
     # Cancel button
     $script:cancelButton = New-Object System.Windows.Forms.Button
     $script:cancelButton.Text = "Cancel"
-    $script:cancelButton.Location = New-Object System.Drawing.Point(180, 865)
-    $script:cancelButton.Size = New-Object System.Drawing.Size(110, 40)
+    $script:cancelButton.Location = New-Object System.Drawing.Point(180, 685)
+    $script:cancelButton.Size = New-Object System.Drawing.Size(110, 35)
     $script:cancelButton.BackColor = [System.Drawing.Color]::FromArgb(220, 53, 69)
     $script:cancelButton.ForeColor = [System.Drawing.Color]::White
     $script:cancelButton.Enabled = $false
@@ -4679,8 +4679,8 @@ function Create-GUI {
     
     # Progress bar
     $script:progressBar = New-Object System.Windows.Forms.ProgressBar
-    $script:progressBar.Location = New-Object System.Drawing.Point(290, 865)
-    $script:progressBar.Size = New-Object System.Drawing.Size(360, 40)
+    $script:progressBar.Location = New-Object System.Drawing.Point(290, 685)
+    $script:progressBar.Size = New-Object System.Drawing.Size(360, 35)
     $script:form.Controls.Add($script:progressBar)
     $toolTip.SetToolTip($script:progressBar, "Overall progress of the copy operation.")
     
@@ -4691,8 +4691,8 @@ function Create-GUI {
     $script:statusTextBox.Multiline = $true
     $script:statusTextBox.ScrollBars = "Vertical"
     $script:statusTextBox.ReadOnly = $true
-    $script:statusTextBox.Location = New-Object System.Drawing.Point(20, 915)
-    $script:statusTextBox.Size = New-Object System.Drawing.Size(650, 150)
+    $script:statusTextBox.Location = New-Object System.Drawing.Point(20, 730)
+                $script:statusTextBox.Size = New-Object System.Drawing.Size(650, 105)
     $script:statusTextBox.BackColor = [System.Drawing.Color]::Black
     $script:statusTextBox.ForeColor = [System.Drawing.Color]::LimeGreen
     $script:statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
