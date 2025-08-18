@@ -726,10 +726,10 @@ function Show-ProjectSearchModal {
             
             $searchForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
             # Stop and dispose the search timer before closing
-            if ($script:searchTimer) {
-                $script:searchTimer.Stop()
-                $script:searchTimer.Dispose()
-            }
+                    # Clean up search resources
+        if ($script:originalProjects) {
+            $script:originalProjects = $null
+        }
             $searchForm.Close()
         }
     })
@@ -740,9 +740,9 @@ function Show-ProjectSearchModal {
     $cancelButton.Location = New-Object System.Drawing.Point(540, 390)
     $cancelButton.Size = New-Object System.Drawing.Size(100, 35)
     $cancelButton.Add_Click({ 
-        # Stop and dispose the search timer before closing
-        if ($script:searchTimer) {
-            $script:searchTimer.Dispose()
+        # Clean up search resources
+        if ($script:originalProjects) {
+            $script:originalProjects = $null
         }
         $script:searchForm.Close() 
     })
@@ -790,6 +790,9 @@ function Show-ProjectSearchModal {
                 $script:resultsListView.Items.Add($item) | Out-Null
             }
             
+            # Clear the search cache when refreshing
+            $script:originalProjects = $null
+            
             $script:statusLabel.Text = "$($projects.Count) projects loaded"
             $script:statusLabel.ForeColor = [System.Drawing.Color]::Green
         } catch {
@@ -819,27 +822,32 @@ function Show-ProjectSearchModal {
         Sort-ListViewItems -listView $listView -column $column -sortOrder $listView.Sorting
     }
     
-    # Search functionality with debouncing
-    $script:searchTimer = New-Object System.Windows.Forms.Timer
-    $script:searchTimer.Interval = 300
-    $script:searchTimer.Add_Tick({
-        $script:searchTimer.Stop()
-        $searchText = $script:searchTextBox.Text.ToLower()
-        # Removed Write-Host to prevent popups in executable
+    # Instant search functionality - no debouncing
+    function Filter-ProjectList {
+        param([string]$searchText)
+        
+        $searchText = $searchText.ToLower()
         
         if ($searchText.Length -eq 0) {
-            # Removed Write-Host to prevent popups in executable
             # Show all items by refreshing the list
             Refresh-ProjectList
             return
         }
         
-        # Removed Write-Host to prevent popups in executable
-        # Filter items by removing non-matching ones
-        $itemsToRemove = @()
-        $matchCount = 0
+        # Store original projects list if not already stored
+        if (-not $script:originalProjects) {
+            $script:originalProjects = @()
+            foreach ($item in $script:resultsListView.Items) {
+                $script:originalProjects += $item
+            }
+        }
         
-        foreach ($item in $script:resultsListView.Items) {
+        # Clear current list and rebuild with filtered results
+        $script:resultsListView.Items.Clear()
+        $script:resultsListView.BeginUpdate()
+        
+        $matchCount = 0
+        foreach ($item in $script:originalProjects) {
             $projectName = $item.Text.ToLower()
             
             # Case-insensitive substring match, treat hyphens/underscores/spaces equivalently
@@ -850,31 +858,29 @@ function Show-ProjectSearchModal {
                       $normalizedName.Contains($normalizedSearch)
             
             if ($isMatch) {
+                $script:resultsListView.Items.Add($item) | Out-Null
                 $matchCount++
-                # Removed Write-Host to prevent popups in executable
-            } else {
-                $itemsToRemove += $item
             }
         }
         
-        # Removed Write-Host to prevent popups in executable
+        $script:resultsListView.EndUpdate()
         
-        # Remove non-matching items
-        foreach ($item in $itemsToRemove) {
-            $script:resultsListView.Items.Remove($item)
-        }
-        
-        $visibleCount = $script:resultsListView.Items.Count
+        # Update status
         if ($script:statusLabel) {
-            $script:statusLabel.Text = "$visibleCount projects match search"
+            $script:statusLabel.Text = "$matchCount projects match search"
             $script:statusLabel.ForeColor = [System.Drawing.Color]::Blue
         }
-        # Removed Write-Host to prevent popups in executable
-    })
+    }
     
     $searchTextBox.Add_TextChanged({
-        $searchTimer.Stop()
-        $searchTimer.Start()
+        # Show searching indicator for better UX
+        if ($script:statusLabel) {
+            $script:statusLabel.Text = "Searching..."
+            $script:statusLabel.ForeColor = [System.Drawing.Color]::Blue
+        }
+        
+        # Perform instant search
+        Filter-ProjectList -searchText $script:searchTextBox.Text
     })
     
     # ListView selection change
