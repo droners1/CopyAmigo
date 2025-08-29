@@ -2723,6 +2723,8 @@ function Copy-FolderWithOptimization {
 }
 
 function Get-TscanMainFolders {
+    # Define the specific main folders to scan
+    $mainFoldersToScan = @("Helicopter", "Mobile", "NavVis", "Terrestrial", "UAV")
     $tscanPath = Join-Path $sourceDir "Tscan"
     
     if (-not (Test-Path $tscanPath -PathType Container)) {
@@ -2730,21 +2732,51 @@ function Get-TscanMainFolders {
     }
     
     $validMainFolders = @()
-    $subfolders = Get-ChildItem $tscanPath -Directory -ErrorAction SilentlyContinue
     
-    foreach ($subfolder in $subfolders) {
-        if ($subfolder.Name -eq "DGN" -or $subfolder.Name -eq "Settings") {
+    # Scan each of the specified main folders
+    foreach ($mainFolderName in $mainFoldersToScan) {
+        $mainFolderPath = Join-Path $tscanPath $mainFolderName
+        
+        # Check if the main folder exists
+        if (-not (Test-Path $mainFolderPath -PathType Container)) {
             continue
         }
         
-        $mainFolderPath = Join-Path $tscanPath $subfolder.Name
-        $laser02GroundPath = Join-Path $mainFolderPath "Laser02 - Ground by line"
+        # Look through all subfolders in this main folder
+        $subfolders = Get-ChildItem $mainFolderPath -Directory -ErrorAction SilentlyContinue
+        $hasValidSubfolder = $false
         
-        if (Test-Path $laser02GroundPath -PathType Container) {
-            $laser02Files = Get-ChildItem $laser02GroundPath -File -ErrorAction SilentlyContinue
-            if ($laser02Files -and $laser02Files.Count -gt 0) {
-                $validMainFolders += $subfolder.Name
+        foreach ($subfolder in $subfolders) {
+            # Check if subfolder name starts with LASER (case-insensitive)
+            if ($subfolder.Name -match "^LASER" -or $subfolder.Name -match "^laser") {
+                $subfolderPath = Join-Path $mainFolderPath $subfolder.Name
+                
+                # Get all files in the subfolder
+                $files = Get-ChildItem $subfolderPath -File -ErrorAction SilentlyContinue
+                
+                # Check if there are any files other than .prj in LASER01
+                $hasValidData = $false
+                foreach ($file in $files) {
+                    # Skip .prj files in LASER01 folder (template files)
+                    if ($subfolder.Name -eq "LASER01" -and $file.Extension -eq ".prj") {
+                        continue
+                    }
+                    # Any other file indicates valid data
+                    $hasValidData = $true
+                    break
+                }
+                
+                # If this subfolder has valid data, mark the main folder as valid
+                if ($hasValidData) {
+                    $hasValidSubfolder = $true
+                    break
+                }
             }
+        }
+        
+        # Only add the main folder if it contains at least one valid subfolder with data
+        if ($hasValidSubfolder) {
+            $validMainFolders += $mainFolderName
         }
     }
     
@@ -2796,7 +2828,30 @@ function Get-TscanSubfolders {
     foreach ($subfolder in $subfolders) {
         # Exclude system folders (Settings, DGN) and Macro folder (always copied automatically)
         if ($subfolder.Name -notmatch "^(Settings|DGN|Macro)$") {
-            $validSubfolders += $subfolder.Name
+            # Check if subfolder name starts with LASER (case-insensitive)
+            if ($subfolder.Name -match "^LASER" -or $subfolder.Name -match "^laser") {
+                $subfolderPath = Join-Path $mainFolderPath $subfolder.Name
+                
+                # Get all files in the subfolder
+                $files = Get-ChildItem $subfolderPath -File -ErrorAction SilentlyContinue
+                
+                # Check if there are any files other than .prj in LASER01
+                $hasValidData = $false
+                foreach ($file in $files) {
+                    # Skip .prj files in folders that start with "laser01" (template files)
+                    if ($subfolder.Name -match "^laser01" -and $file.Extension -eq ".prj") {
+                        continue
+                    }
+                    # Any other file indicates valid data
+                    $hasValidData = $true
+                    break
+                }
+                
+                # Only add the subfolder if it contains valid data
+                if ($hasValidData) {
+                    $validSubfolders += $subfolder.Name
+                }
+            }
         }
     }
     
