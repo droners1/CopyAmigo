@@ -4,7 +4,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$scriptVersion = "v10.0 - Professional Edition"
+$scriptVersion = "v15.0 - Professional Edition"
 
 # Get current directory and project info
 $currentDir = $PWD.Path
@@ -78,6 +78,16 @@ $script:lastLoggedPercent = -1
 $script:lastLoggedFile = ""
 $script:totalOperationFiles = 0
 $script:totalOperationSize = 0
+
+# EASTER EGG VARIABLES
+# Array of bear facts for the hidden easter egg feature
+$script:bearFacts = @(
+    "Bears have an incredible sense of smell - better than dogs.",
+    "Grizzly bears can run up to ~35 mph.",
+    "Polar bear fur is transparent; their skin is black.",
+    "Bears can go 100+ days without eating during hibernation.",
+    "A bear's bite force can exceed 1,200 PSI."
+)
 
 # WINDOWS EXPLORER PROGRESS DIALOG VARIABLES
 $script:progressDialog = $null
@@ -2197,7 +2207,7 @@ function Show-SkippedFilesInfo {
     
     # Create informational dialog
     $infoForm = New-Object System.Windows.Forms.Form
-    $infoForm.Text = "Files Will Be Skipped - CopyAmigo v10.0"
+    $infoForm.Text = "Files Will Be Skipped - CopyAmigo v15.0"
     $infoForm.Size = New-Object System.Drawing.Size(600, 500)
     $infoForm.StartPosition = "CenterParent"
     $infoForm.FormBorderStyle = "FixedDialog"
@@ -2757,8 +2767,8 @@ function Get-TscanMainFolders {
                 # Check if there are any files other than .prj in LASER01
                 $hasValidData = $false
                 foreach ($file in $files) {
-                    # Skip .prj files in LASER01 folder (template files)
-                    if ($subfolder.Name -eq "LASER01" -and $file.Extension -eq ".prj") {
+                    # Skip .prj files in folders that start with "laser01" (template files)
+                    if ($subfolder.Name -match "^laser01" -and $file.Extension -eq ".prj") {
                         continue
                     }
                     # Any other file indicates valid data
@@ -4801,12 +4811,75 @@ function Create-GUI {
 
 # End of Create-GUI function
 
+# EASTER EGG FUNCTION
+function Show-JavierEasterEgg {
+    <#
+    .SYNOPSIS
+        Displays a hidden easter egg message box with information about Javier Sanchez and a random bear fact.
+    
+    .DESCRIPTION
+        This function is triggered by pressing Ctrl+Shift+J and shows a message box containing:
+        - Information about Javier Sanchez, the tool designer
+        - His favorite color
+        - A randomly selected bear fact from the predefined array
+        
+    .NOTES
+        This is a hidden easter egg feature that runs quietly in the background.
+        It does not interfere with the main functionality of the script.
+    #>
+    
+    try {
+        # Select a random bear fact from the array
+        $randomBearFact = $script:bearFacts | Get-Random
+        
+        # Create the easter egg message
+        $easterEggMessage = @"
+Javier Sanchez designed this tool.
+His favorite color is blue.
+Fun fact about bears: $randomBearFact
+"@
+        
+        # Display the message box
+        [System.Windows.Forms.MessageBox]::Show(
+            $easterEggMessage,
+            "CopyAmigo Easter Egg",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+        
+        # Log the easter egg activation (optional, for debugging)
+        Write-Status "EASTER EGG: Javier easter egg activated with bear fact: $randomBearFact"
+        
+    } catch {
+        # Silently handle any errors to prevent interference with main functionality
+        Write-Status "EASTER EGG: Error displaying easter egg: $($_.Exception.Message)"
+    }
+}
+
 # Main execution
 try {
     # Removed Write-Host to prevent popups in executable
     # Removed Write-Host to prevent popups in executable
     
     $script:form = Create-GUI
+    
+    # Add key event handler for the hidden easter egg (Ctrl+Shift+J)
+    $script:form.Add_KeyDown({
+        param($sender, [System.Windows.Forms.KeyEventArgs]$e)
+        
+        # Check if Ctrl+Shift+J is pressed
+        if ($e.Control -and $e.Shift -and $e.KeyCode -eq [System.Windows.Forms.Keys]::J) {
+            # Trigger the easter egg
+            Show-JavierEasterEgg
+            
+            # Mark the event as handled to prevent further processing
+            $e.Handled = $true
+            $e.SuppressKeyPress = $true
+        }
+    })
+    
+    # Ensure the form can receive key events
+    $script:form.KeyPreview = $true
     
     $script:form.Add_Shown({
         $script:form.Activate()
